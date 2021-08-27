@@ -473,8 +473,6 @@ function onChatMessage(peer_id, sender_name, message)
 		else 
 			debugLog('No task found with that name')
 		end 
-	else 
-		debugLog('No ship found with that name')
 	end 
 end
 
@@ -981,7 +979,7 @@ function split(inputstr, sep)
 	return t
 end
 
---Finds a given ship from the list of spawned ships
+--Find a given ship from the list of spawned ships
 function find_ship_id(ship_name)
 	local _ = false
 	
@@ -992,7 +990,7 @@ function find_ship_id(ship_name)
 	return _
 end
 
---helper function to find a given key in an unordered table
+-- Check if a given key exists in an unordered table
 function find_table_index(v,t)
 	local _ = false
 	if t then
