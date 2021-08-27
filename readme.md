@@ -8,13 +8,14 @@
 
 ## What actions can be taken as part of a task?
 
-- Character movement  
-- Button presses  
-- Helm interaction  
-- Dialogue  
-- Waiting  
+- [x] Character movement 
+- [x] Button presses  
+- [?] Helm interaction  
+- [x] Dialogue  
+- [x] Waiting  
 - Reading sensor data  
 - Give/take items
+- Basic conditional
 
 ## How do tasks interact with each other? 
 

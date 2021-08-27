@@ -5,6 +5,8 @@ g_output_log = {}
 g_objective_update_counter = 0
 g_damage_tracker = {}
 
+DEFAULT_POPUP_LIFESPAN = 120
+
 function Ship(ship_data) return {
     crew = {},
     tasks = {}, --task priority: 0 for emergencies, 1 for urgent, 2 for normal, 3 for routine/maintenance, math.huge for idle (crewmembers only)
@@ -12,8 +14,10 @@ function Ship(ship_data) return {
         addon_information = {}, --includes the vehicle ID
         sensors = {}, --external sensor input (speed, GPS, etc)
         onboard_information = {}, --onboard states such as whether the lights are on
-    },
+		popups = {},
+	},
 	map_markers = {},
+
     init = function(self, ship_data)        
         --initialize the sensor readings
         for sensor_id, sensor_name in ipairs(ship_data.sensors) do 
@@ -108,6 +112,16 @@ function Ship(ship_data) return {
 		for _,crewmember in pairs(self.crew) do 
 			crewmember:tick(self.states.addon_information.id)
 		end 
+
+		-- Popup lifespan management
+		for _, popup in ipairs(self.states.popups) do 
+			popup.lifespan = popup.lifespan - 1
+
+			if popup.lifespan <= 0 and popup.active then
+				server.removePopup(-1,popup.id)
+				popup.active = false
+			end
+		end
     end,
 
     create_task = function(self, task_name) --task is a string with the variable name of the task
@@ -268,17 +282,21 @@ function Task(ship_states) return {
 	current_task_component = 1,
 
 	update = function(self)
+		self.lifespan = self.lifespan + 1
 		--Check for task completion
 		if self.current_task_component == #self.task_components + 1 then return true end 
 
 		local component = self.task_components[self.current_task_component]
 		local is_complete = self[component.component](self, table.unpack(component.args))
-		if is_complete then self.current_task_component = self.current_task_component + 1 end 
+		if is_complete then 
+			self.current_task_component = self.current_task_component + 1
+			debugLog('Completed task component '..component.component) 
+		end 
 		return false 
 	end,
 	
 	assign_crew = function(self)
-		for _,crewmember in pairs(self.required_crew) do
+		for _,crewmember in pairs(self.assigned_crew) do
 			local is_success = crewmember:assign_to_task(self.name, self.priority)
 			if not is_success then return false end 
 		end 
@@ -295,17 +313,26 @@ function Task(ship_states) return {
 		local wait_time_ticks = math.floor(wait_time * 60)
 		if not self.wait_points[wait_point_name] then 
 			self.wait_points[wait_point_name] = self.lifespan
-		elseif self.wait_points[wait_point_name] + wait_time_ticks > self.lifespan then 
+		elseif self.wait_points[wait_point_name] + wait_time_ticks < self.lifespan then 
 			return true
 		end 
 		
 		return false 
 	end,
 	
-	press_button = function(self,button_name)
+	press_button = function(self,button_name) --in seconds
 		server.pressVehicleButton(self.ship_states.addon_information.id, button_name)
 		return true 
-	end,	
+	end,
+	
+	create_popup = function(self, char_name, popup_text, popup_lifespan)
+		local lifespan = popup_lifespan or DEFAULT_POPUP_LIFESPAN
+		local popup_id = #self.ship_states.popups + 1
+		local char_id = self.assigned_crew[char_name].id
+		addPopup(popup_id, char_id, self.ship_states.popups, popup_text, lifespan)
+		return true 
+	end,
+	
 
 }
 end 
@@ -337,8 +364,10 @@ g_tasks = {
 		task_components = {
 			make_task_component('assign_crew'),
 			make_task_component('set_seated', 'Engineer', 'Electrical Control'),
+			make_task_component('create_popup', 'Engineer', 'Turning on the lights'),
+			make_task_component('wait', 'pre_switch_wait', 1.5),
 			make_task_component('press_button', 'Console Lights'),
-			make_task_component('wait', 'wait_for_console_lights', 2.5),
+			make_task_component('wait', 'wait_for_console_lights', 0.7),
 			make_task_component('press_button', 'Exterior Lights'),
 			make_task_component('wait', 'wait_end', 2.5),
 
@@ -628,6 +657,8 @@ g_ships = {
 			'gps_x',
 			'gps_y',
 			'compass',
+			'fuel',
+			'fuel_capacity',
 
 		},
 		crew = {
@@ -957,3 +988,8 @@ function removeMissionMarkers(mission)
 	mission.map_markers = {}
 end
 
+function addPopup(popup_id, char_id, table_to_store, popup_text, popup_lifespan )
+	-- Add a character dialogue popup
+	server.setPopup(-1, popup_id, '', true, popup_text, 0, 0, 0, 10, nil, char_id)
+	table.insert(table_to_store, {text=popup_text, id=popup_id, active=true, lifespan = popup_lifespan})
+end	
