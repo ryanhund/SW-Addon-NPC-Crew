@@ -95,10 +95,10 @@ function Ship(ship_data) return {
         --loop through ongoing tasks and call each in turn
         for k, task in pairs(self.tasks) do 
             local is_complete = false 
-            task.task_data, is_complete = g_tasks[task.task_name]:tick(task.task_data, self.states)
+            is_complete = task.task_object:update()
             if is_complete then 
                 --Return crew states to idle 
-                for crew_name, crewmember in pairs(task.task_data.assigned_crew) do 
+                for crew_name, crewmember in pairs(task.task_object.assigned_crew) do 
                     crewmember:complete_task()
                 end
                 self.tasks[k] = nil --remove the completed task 
@@ -114,14 +114,14 @@ function Ship(ship_data) return {
         --Check to make sure task doesn't already exist
 
         --Create the task
-        local task_data = g_tasks[task_name].init
+        local task = create_task(task_name, self.states)
 
         --Populate the task with crewmembers
-        for _,role in pairs(task_data.required_crew) do 
+        for _,role in pairs(task.required_crew) do 
             local found = false 
             for crew_name, crew_object in pairs(self.crew) do 
                 if crew_object.role == role then 
-                    task_data.assigned_crew[role] = crew_object --!! not sure if I should use the name or the object here
+                    task.assigned_crew[role] = crew_object
 					debugLog('Assigned '..role.. ' to task '..task_name)
 					found = true 
                 end 
@@ -130,9 +130,9 @@ function Ship(ship_data) return {
             end 
         end 
 		debugLog('Created task '..task_name)
-		printTable(task_data, 'Task data ')
+		printTable(task, 'Task data ')
         --Store the task in the ship's tasks table
-        table.insert(self.tasks, {task_name = task_name, task_data = task_data}) --'task_name' is the variable name of the task (eg, g_tasks.turn_on_the_lights).
+        table.insert(self.tasks, {task_name = task_name, task_object = task}) --'task_name' is the variable name of the task (eg, turn_on_the_lights).
     end,
 
 	on_vehicle_load = function(self)
@@ -254,85 +254,100 @@ function Crew(role, routine) return {
 }
 end
 
---template function for task
---never called directly, only subclassed
-function new_task(name, priority, required_crew) 
-    return {
-        name = name, 
-        priority = priority,
-        required_crew = required_crew,
-        assigned_crew = {},
-        lifespan = 0
-    }
+--Base class for tasks. Never called directly, only subclassed
+function Task(ship_states) return {
+
+	name = '',
+	priority = math.huge,
+	required_crew = {},
+	assigned_crew = {},
+	lifespan = 0,
+	ship_states = ship_states,
+	wait_points = {},
+	task_components = {},
+	current_task_component = 1,
+
+	update = function(self)
+		--Check for task completion
+		if self.current_task_component == #self.task_components + 1 then return true end 
+
+		local component = self.task_components[self.current_task_component]
+		local is_complete = self[component.component](self, table.unpack(component.args))
+		if is_complete then self.current_task_component = self.current_task_component + 1 end 
+		return false 
+	end,
+	
+	assign_crew = function(self)
+		for _,crewmember in pairs(self.required_crew) do
+			local is_success = crewmember:assign_to_task(self.name, self.priority)
+			if not is_success then return false end 
+		end 
+		return true 
+	end,
+	
+	set_seated = function(self, char_name, seat_name)
+		local char_id = self.assigned_crew[char_name].id
+		server.setCharacterSeated(char_id, self.ship_states.addon_information.id, seat_name)
+		return true
+	end,
+	
+	wait = function(self, wait_point_name, wait_time) --in seconds
+		local wait_time_ticks = math.floor(wait_time * 60)
+		if not self.wait_points[wait_point_name] then 
+			self.wait_points[wait_point_name] = self.lifespan
+		elseif self.wait_points[wait_point_name] + wait_time_ticks > self.lifespan then 
+			return true
+		end 
+		
+		return false 
+	end,
+	
+	press_button = function(self,button_name)
+		server.pressVehicleButton(self.ship_states.addon_information.id, button_name)
+		return true 
+	end,	
+
+}
+end 
+
+function conc(t1,t2) 
+	for k,v in pairs(t2) do 
+		t1[k] = v
+	end 
+	return t1
+end 
+
+function make_task_component(component, ...)
+	local args = {...} 
+	return {component = component, args = args or {}} 
 end
 
+function create_task(task_name, ship_states, ...)
+	local args = {...}
+	local base = Task(ship_states)
+	return conc(base, g_tasks[task_name](table.unpack(args)))
+end 
+
 g_tasks = {
+	turn_on_the_lights = function() return { --This function can support an arbitrary number of args
+		name = 'Turn on the lights',
+		priority = 3,
+		required_crew = {'Engineer'}, --Has to be a table even if there's only one
 
-    --task method is responsible for allocating the crew (making sure that each one is doing the right thing)
-    turn_on_the_lights = {
-        init = new_task('Turn on the lights', 3, {'sailor'}),
+		task_components = {
+			make_task_component('assign_crew'),
+			make_task_component('set_seated', 'Engineer', 'Electrical Control'),
+			make_task_component('press_button', 'Console Lights'),
+			make_task_component('wait', 'wait_for_console_lights', 2.5),
+			make_task_component('press_button', 'Exterior Lights'),
+			make_task_component('wait', 'wait_end', 2.5),
 
-        tick = function(self, task_data, ship_states)
-            task_data.lifespan = task_data.lifespan + 1
-
-            local is_success = true 
-            for _,crewmember in pairs(task_data.assigned_crew) do 
-                is_success = crewmember:assign_to_task(task_data.task_name, task_data.priority)
-                if not is_success then return task_data, false end 
-            end
-
-            local char_id = task_data.assigned_crew.sailor.id
-            server.setCharacterSeated(char_id, ship_states.addon_information.id, 'Lighting control')
-
-            task_data.wait_point = task_data.lifespan
-            local five_seconds = 60 * 5
-            if task_data.wait_point + five_seconds > task_data.lifespan then 
-                return task_data, false
-            end
-
-            server.pressVehicleButton(ship_states.addon_information.id, 'Lights')
-            return task_data, true 
-
-        end,
-    },
-
-	take_stations = {
-		init = new_task('Take stations', 3, {'Captain', 'Engineer'}),
-
-		tick = function(self, task_data, ship_states)
-			task_data.lifespan = task_data.lifespan + 1
-
-			local is_success = true 
-            for _,crewmember in pairs(task_data.assigned_crew) do 
-                is_success = crewmember:assign_to_task(task_data.task_name, task_data.priority)
-                if not is_success then return task_data, false end 
-            end
-
-			do 
-				local char_id = task_data.assigned_crew.Captain.id 
-				server.setCharacterSeated(char_id, ship_states.addon_information.id, 'Captain')
-			end 
-
-			do 
-				local char_id = task_data.assigned_crew.Engineer.id 
-				server.setCharacterSeated(char_id, ship_states.addon_information.id, 'Engineer')
-			end 
-			if not task_data.wait_point then 
-				task_data.wait_point = task_data.lifespan
-			end 
-            local five_seconds = 60 * 5
-            if task_data.wait_point + five_seconds > task_data.lifespan then 
-                return task_data, false
-            end
-			debugLog('Task complete')
-			task_data.wait_point = nil
-			task_data.lifespan = 0 
-			return task_data, true
-		end,
-	}
+		},
+	} end,
 }
 
 
+--Task:init('Turn on the lights', 3, {'Engineer'}, )
 
 
 -------------------------------------------------------------------
@@ -434,7 +449,7 @@ function onCustomCommand(message, user_id, admin, auth, command, one, ...)
 	end 
 
 	if command == '?createtaskdebug' and admin == true then 
-		g_savedata.ships[#g_savedata.ships]:create_task('take_stations')		
+		g_savedata.ships[#g_savedata.ships]:create_task('turn_on_the_lights')		
 
 	end 
 
