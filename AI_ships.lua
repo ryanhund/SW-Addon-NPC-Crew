@@ -356,8 +356,8 @@ function create_task(task_name, ship_states, ...)
 end 
 
 g_tasks = {
-	turn_on_the_lights = function() return { --This function can support an arbitrary number of args
-		name = 'Turn on the lights',
+	['turn on the lights'] = function() return { --This function can support an arbitrary number of args
+		name = 'turn on the lights', -- This is the name that will be used to spawn the task
 		priority = 3,
 		required_crew = {'Engineer'}, --Has to be a table even if there's only one
 
@@ -460,6 +460,22 @@ function onTick(delta_worldtime)
         ship:tick()
     end 
 
+end
+
+function onChatMessage(peer_id, sender_name, message)
+	local command = split(message)
+	local ship_id = find_ship_id(command[1]) 
+	if ship_id then 
+		local task_name = table.concat(command, ' ', 2)
+		local is_task_found = find_table_index(task_name, g_tasks) --This could change if tasks become ship-specific
+		if is_task_found then 
+			g_savedata.ships[ship_id]:create_task(task_name)
+		else 
+			debugLog('No task found with that name')
+		end 
+	else 
+		debugLog('No ship found with that name')
+	end 
 end
 
 function onCustomCommand(message, user_id, admin, auth, command, one, ...)
@@ -952,6 +968,40 @@ function findSuitableZone(player_id, is_ocean_zone)
 	end
 	--To be expanded with custom, non-ocean zones
 end 
+
+-- Splits string, default separator is whitespace (%s)
+function split(inputstr, sep)
+	if sep == nil then
+			sep = "%s"
+	end
+	local t={}
+	for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+			table.insert(t, str)
+	end
+	return t
+end
+
+--Finds a given ship from the list of spawned ships
+function find_ship_id(ship_name)
+	local _ = false
+	
+	for index,ship in pairs(g_savedata.ships)do
+	_ = (ship_name==ship.states.addon_information.name) and index or _
+	end
+
+	return _
+end
+
+--helper function to find a given key in an unordered table
+function find_table_index(v,t)
+	local _ = false
+	if t then
+		for index,value in pairs(t)do
+		_=_ or (v==index)
+		end
+	end
+	return _
+end
 
 -------------------------------------------------------------------
 --
