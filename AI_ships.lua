@@ -21,20 +21,15 @@ function Ship(ship_data) return {
     init = function(self, ship_data)        
         --initialize the sensor readings
         for sensor_id, sensor_name in ipairs(ship_data.sensors) do 
-            self.states.sensors[sensor_name] = {id = sensor_id, value=0}
+			if string.find(sensor_name,'bool') then 
+				self.states.sensors[sensor_name] = {id = sensor_id, value=false, bool=true}
+			else 
+            	self.states.sensors[sensor_name] = {id = sensor_id, value=0, bool=false}
+			end 
 			debugLog('Created sensor '..sensor_name..' with ID '..sensor_id)
         end 
 
         --Spawn the objects
-        --TODO: we'll see
-
-        --need:
-        --spawn zone transform DONE
-        --location - refers to filesystem location with playlist and location index 
-        --object descriptor (this is all in g_savedata.valid_ships[ship_name].objects)
-        --parent_vehicle_id should be 0 or nil
-        --  for crew, should be spawned_objects[0].id 
-		
         local spawned_objects = {}
 		local spawn_transform = ship_data.spawn_transform
 		local location = ship_data.location()
@@ -90,7 +85,11 @@ function Ship(ship_data) return {
         for sensor_name, sensor_data in pairs(self.states.sensors) do 
             local values, is_success = server.getVehicleDial(self.states.addon_information.id, 'sensor'..tostring(sensor_data.id))
 			if is_success then 
-				sensor_data.value = values['value']
+				if sensor_data.bool then 
+					sensor_data.value = (values['value'] > 0) and true or false
+				else
+					sensor_data.value = values['value']
+				end
 			else 
 				--debugLog('failed to get value for sensor '..sensor_name..' with ID '..sensor_data.id)
 			end 
@@ -160,7 +159,7 @@ function Ship(ship_data) return {
 	rebuild_ui = function(self)
 		--if self.states.addon_information.sim.state == 'loaded' then 
 			local pos = self.states.addon_information.transform 
-			printTable(pos, 'Current Location')
+			--printTable(pos, 'Current Location')
 			local marker_x, marker_y, marker_z = matrix.position(pos)
 			addMarker(self, createTutorialMarker(marker_x, marker_z, self.states.addon_information.name, ''))
 
@@ -268,6 +267,8 @@ function Crew(role, routine) return {
 }
 end
 
+
+
 --Base class for tasks. Never called directly, only subclassed
 function Task(ship_states) return {
 
@@ -280,6 +281,15 @@ function Task(ship_states) return {
 	wait_points = {},
 	task_components = {},
 	current_task_component = 1,
+	conditionals = {
+		['and'] = function(a,b) return (a and b) end,
+		['or']  = function(a,b) return (a or b) end,
+		['>']   = function(a,b) return (a > b) end,
+		['<']   = function(a,b) return (a < b) end,
+		['>=']   = function(a,b) return (a >= b) end,
+		['<=']   = function(a,b) return (a <= b) end,
+		['==']   = function(a,b) return (a == b) end,
+	},
 
 	update = function(self)
 		self.lifespan = self.lifespan + 1
@@ -324,7 +334,10 @@ function Task(ship_states) return {
 		server.pressVehicleButton(self.ship_states.addon_information.id, button_name)
 		return true 
 	end,
-	
+
+	--- Create a dialogue popup over a given character. 
+	--- popup_lifespan is optional, and is in ticks (1 seconds ~= 60 ticks). 
+	--- Default value can be set in DEFAULT_POPUP_LIFESPAN
 	create_popup = function(self, char_name, popup_text, popup_lifespan)
 		local lifespan = popup_lifespan or DEFAULT_POPUP_LIFESPAN
 		local popup_id = #self.ship_states.popups + 1
@@ -332,7 +345,20 @@ function Task(ship_states) return {
 		addPopup(popup_id, char_id, self.ship_states.popups, popup_text, lifespan)
 		return true 
 	end,
-	
+
+	--- Returns true if and only if the entire function is true
+	--- Function is evaluated left to right
+	--- args are alternating information to evaluate (sensors) and conditionals
+	evaluate_conditional = function(self, ...) 
+		local terms = {...}
+		if #terms == 1 then return (self.ship_states.sensors[terms[1]].value and true or false) end 
+		for i=1,#terms-1,2 do 
+			local a = (type(terms[i]) ~= 'string') and terms[i] or self.ship_states.sensors[terms[i]].value
+			local b = (type(terms[i+2]) ~= 'string') and terms[i+2] or self.ship_states.sensors[terms[i+2]].value
+			if not self.conditionals[terms[i+1]](a,b) then return false end
+		end 
+		return true
+	end,
 
 }
 end 
@@ -344,6 +370,9 @@ function conc(t1,t2)
 	return t1
 end 
 
+--- Generator function that creates a task component.
+--- @param component string A primitive or user-defined component method to execute
+--- @param args string The arguments to pass to the component method
 function make_task_component(component, ...)
 	local args = {...} 
 	return {component = component, args = args or {}} 
@@ -364,6 +393,8 @@ g_tasks = {
 		task_components = {
 			make_task_component('assign_crew'),
 			make_task_component('set_seated', 'Engineer', 'Electrical Control'),
+			make_task_component('create_popup', 'Engineer', 'Waiting for main power', 60),
+			make_task_component('evaluate_conditional', 'bool_main_power'),
 			make_task_component('create_popup', 'Engineer', 'Turning on the lights'),
 			make_task_component('wait', 'pre_switch_wait', 1.5),
 			make_task_component('press_button', 'Console Lights'),
@@ -373,10 +404,91 @@ g_tasks = {
 
 		},
 	} end,
+
+	['cold start'] = function() return {
+		name = 'cold start',
+		priority = 1,
+		required_crew = {'Captain', 'Engineer'},
+
+		task_components = {
+			make_task_component('assign_crew'),
+			make_task_component('set_seated', 'Captain', 'Captain'),
+			make_task_component('set_seated', 'Engineer', 'Electrical Control'),
+			make_task_component('wait', 'wait1', 1.5),
+			make_task_component('create_popup', 'Captain', 'Begin cold start procedure', 60),
+			make_task_component('wait', 'wait2', 1),
+			make_task_component('create_popup','Captain','Turn on main power'),
+			make_task_component('wait', 'wait3', 0.5),
+			make_task_component('create_popup', 'Engineer', 'Turning on main power', 60),
+			make_task_component('press_button', 'master_power'),
+			make_task_component('wait', 'wait4', 1.2),
+			make_task_component('create_popup', 'Engineer', 'Power on, enabling electrical systems'),
+			make_task_component('wait', 'wait5', 0.3),
+			make_task_component('press_button', 'Console Lights'),
+			make_task_component('wait', 'wait_for_console_lights', 0.3),
+			make_task_component('press_button', 'Exterior Lights'),
+			make_task_component('wait', 'wait6', 1),
+			make_task_component('create_popup', 'Engineer', 'Electrical systems online'),
+			make_task_component('wait', 'wait7', 1),
+			make_task_component('set_seated', 'Engineer', 'Engineer'),
+			make_task_component('create_popup', 'Captain', 'Copy, starting the engine'),
+			make_task_component('press_button', 'throttle_up'),
+			make_task_component('wait', 'wait8', 2.5),
+			make_task_component('press_button','Engine Start'),
+			make_task_component('wait', 'wait9', 2.5),
+			make_task_component('evaluate_conditional','engine1_rps','>',10),
+			make_task_component('evaluate_conditional','engine2_rps','>',10),
+			make_task_component('create_popup','Engineer','Both engines holding at 20 RPS'),
+			make_task_component('wait', 'wait10', 2),
+			make_task_component('create_popup', 'Captain', 'Understood, looks like we\'re ready to go'),
+		}
+	} end,
 }
 
 
 --Task:init('Turn on the lights', 3, {'Engineer'}, )
+
+-------------------------------------------------------------------
+--
+--	Ship Creation
+--
+-------------------------------------------------------------------
+
+function create_ship(ship_name)
+	return g_ships[ship_name]
+end 
+
+function create_ship_squirrel(user_id)
+	local ship_data = create_ship('squirrel')
+	ship_data.spawn_transform = findSuitableZone(user_id, true)
+	table.insert(g_savedata.ships, Ship(ship_data))
+	local ship_id = #g_savedata.ships
+	g_savedata.ships[ship_id]:init(ship_data)
+	return ship_id 
+end 
+
+g_ships = {
+	squirrel = {
+		name = 'Squirrel',
+		sensors = {
+			'speed_kph',
+			'gps_x',
+			'gps_y',
+			'compass',
+			'fuel',
+			'fuel_capacity',
+			'bool_main_power',
+			'engine1_rps',
+			'engine2_rps',
+
+		},
+		crew = {
+			captain = Crew('Captain','officer_of_the_deck'),
+			engineer= Crew('Engineer', 'engineer'),
+		},
+		location = function() return g_savedata.valid_ships.Squirrel end,
+	}
+}
 
 
 -------------------------------------------------------------------
@@ -642,47 +754,6 @@ function onVehicleUnload(vehicle_id)
 		end 
 	end
 end 
-
-
--------------------------------------------------------------------
---
---	Ship Creation
---
--------------------------------------------------------------------
-
-function create_ship(ship_name)
-	return g_ships[ship_name]
-end 
-
-function create_ship_squirrel(user_id)
-	local ship_data = create_ship('squirrel')
-	ship_data.spawn_transform = findSuitableZone(user_id, true)
-	table.insert(g_savedata.ships, Ship(ship_data))
-	local ship_id = #g_savedata.ships
-	g_savedata.ships[ship_id]:init(ship_data)
-	return ship_id 
-end 
-
-g_ships = {
-	squirrel = {
-		name = 'Squirrel',
-		sensors = {
-			'speed_kph',
-			'gps_x',
-			'gps_y',
-			'compass',
-			'fuel',
-			'fuel_capacity',
-
-		},
-		crew = {
-			captain = Crew('Captain','officer_of_the_deck'),
-			engineer= Crew('Engineer', 'engineer'),
-		},
-		location = function() return g_savedata.valid_ships.Squirrel end,
-	}
-}
-
 
 
 -------------------------------------------------------------------

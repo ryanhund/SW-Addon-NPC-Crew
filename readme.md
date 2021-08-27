@@ -13,9 +13,8 @@
 - [?] Helm interaction  
 - [x] Dialogue  
 - [x] Waiting  
-- Reading sensor data  
+- [x] Conditional based on sensor data  
 - Give/take items
-- Basic conditional
 
 ## How do tasks interact with each other? 
 
