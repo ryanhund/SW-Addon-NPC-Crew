@@ -95,7 +95,7 @@ function Ship(ship_data) return {
 			end 
         end 
 
-        --loop through ongoing tasks and call each in turn
+        --loop through ongoing tasks and update each in turn
         for k, task in pairs(self.tasks) do 
             local is_complete = false 
             is_complete = task.task_object:update()

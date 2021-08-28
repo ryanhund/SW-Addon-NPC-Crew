@@ -1,3 +1,35 @@
+# To-do:
+
+## Task logic
+
+- Give/take item primitive
+- Optional/required crewmembers 
+- Component branching
+- Helm interaction
+- Manually stop ongoing task
+- Stop all ongoing tasks
+- Wait for user input
+- Task overrides
+- More flexible task creation: see discussion below
+- Complete task method for teardown tasks
+
+## Ship features
+- Distinguish between loaded and unloaded in ship and task logic
+- Implement vehicle movement while unloaded
+
+## Ship creation interface
+
+- Tasks attached to ships rather than global
+- All data about a particular vehicle stored in one table
+- Allow more than one ship of each type to spawn (custom names?)
+- Consider moving object spawn logic outside of Ship:init
+
+## The Big Kahuna
+
+- Refactor ship, crew, and task objects to separate data from methods
+
+# Feature Discussion
+
 ## What can create a task?
 
 - Players  
@@ -33,6 +65,10 @@
 
 - [x] Characters can return to an idle position  
 - Or, they can remain in their current position  
+
+## 
+ 
+- When tasks complete, do they reset buttons, etc back to their initial values? 
 
 ## Should character positioning be part of the task system, or should it be connected to the characters?
 
