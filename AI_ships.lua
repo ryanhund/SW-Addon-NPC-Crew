@@ -439,7 +439,7 @@ g_tasks = {
 
 	['cold start'] = function() return {
 		name = 'cold start',
-		priority = 1,
+		priority = 2,
 		required_crew = {'Captain', 'Engineer'},
 
 		task_components = {
