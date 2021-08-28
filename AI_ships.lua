@@ -99,6 +99,17 @@ function Ship(ship_data) return {
         for k, task in pairs(self.tasks) do 
             local is_complete = false 
             is_complete = task.task_object:update()
+
+			-- Check to make sure the crewmembers are still assigned to the task
+			-- If not, remove them from the list of assigned crew
+			-- This lets the task object know that it no longer has the crew required to complete the task
+			for crew_name, crewmember in pairs(task.task_object.assigned_crew) do 
+				if (crewmember.current_task.t ~= task.task_object.name) and (crewmember.current_task.t ~= 'routine') then 
+					debugLog(crew_name..' is no longer assigned to '..task.task_object.name..'. Now assigned to '..crewmember.current_task.t)
+					task.task_object.assigned_crew[crew_name] = nil 
+				end 
+			end 
+
             if is_complete then 
                 --Return crew states to idle 
                 for crew_name, crewmember in pairs(task.task_object.assigned_crew) do 
@@ -126,10 +137,10 @@ function Ship(ship_data) return {
     create_task = function(self, task_name) --task_name is a string with the variable name of the task
         --Check to make sure task doesn't already exist
 
-        --Create the task
+        --Create an instance of the task object
         local task = create_task(task_name, self.states)
 
-        --Populate the task with crewmembers
+        --Populate the task object with crewmembers
         for _,role in pairs(task.required_crew) do 
             local found = false 
             for crew_name, crew_object in pairs(self.crew) do 
@@ -241,6 +252,7 @@ function Crew(role, routine) return {
         return false 
     end,
 
+	--- Set the crew object to return to its default routine. Reset task priority to infinity.
     complete_task = function(self)
         self.current_task.t = 'routine'
         self.current_task.priority = math.huge 
@@ -293,11 +305,28 @@ function Task(ship_states) return {
 
 	update = function(self)
 		self.lifespan = self.lifespan + 1
-		--Check for task completion
+		-- Check for task completion
 		if self.current_task_component == #self.task_components + 1 then return true end 
 
+		-- Check if crew are still assigned to task
+		-- If not, throw a warning and end the task
+		if tableLength(self.required_crew) ~= tableLength(self.assigned_crew) then 
+			debugLog('One or more crewmembers no longer assigned to task '..self.name..'. Ending task...')
+			return true  
+		end 
+
+		-- Task component methods return two values: 
+		-- is_complete denotes the completion of the individual component, and will return false until it is true 
+		-- task_failure is an optional return value that denotes if the entire task should fail
 		local component = self.task_components[self.current_task_component]
-		local is_complete = self[component.component](self, table.unpack(component.args))
+		local is_complete, task_failure = self[component.component](self, table.unpack(component.args))
+		
+		-- If the task has failed, throw a warning and end the task
+		if task_failure then 
+			debugLog('Task failed at step '..self.current_task_component..': '..component.component)
+			return true 
+		end 
+		
 		if is_complete then 
 			self.current_task_component = self.current_task_component + 1
 			debugLog('Completed task component '..component.component) 
@@ -308,9 +337,9 @@ function Task(ship_states) return {
 	assign_crew = function(self)
 		for _,crewmember in pairs(self.assigned_crew) do
 			local is_success = crewmember:assign_to_task(self.name, self.priority)
-			if not is_success then return false end 
+			if not is_success then return false, true end 
 		end 
-		return true 
+		return true
 	end,
 	
 	set_seated = function(self, char_name, seat_name)
@@ -389,6 +418,9 @@ g_tasks = {
 		name = 'turn on the lights', -- This is the name that will be used to spawn the task
 		priority = 3,
 		required_crew = {'Engineer'}, --Has to be a table even if there's only one
+		can_override = {
+
+		},
 
 		task_components = {
 			make_task_component('assign_crew'),
@@ -442,6 +474,18 @@ g_tasks = {
 			make_task_component('wait', 'wait10', 2),
 			make_task_component('create_popup', 'Captain', 'Understood, looks like we\'re ready to go'),
 		}
+	} end,
+
+	['emergency naptime'] = function() return {
+		name = 'emergency nap',
+		priority = 0,
+		required_crew = {'Captain'},
+
+		task_components = {
+			make_task_component('assign_crew'),
+			make_task_component('set_seated', 'Captain', 'bed1'),
+			make_task_component('wait', 'wait1', 7.5)
+		},
 	} end,
 }
 
