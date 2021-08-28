@@ -31,7 +31,7 @@
  
 ##
 
-- Characters can return to an idle position  
+- [x] Characters can return to an idle position  
 - Or, they can remain in their current position  
 
 ## Should character positioning be part of the task system, or should it be connected to the characters?
@@ -41,7 +41,7 @@
 
 ## Character ideas
 
-- Default routines instead of default locations - duty station, rest, sleep
+- [x] Default routines instead of default locations - duty station, rest, sleep
 
 # Tasks
 - Navigation

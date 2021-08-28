@@ -123,7 +123,7 @@ function Ship(ship_data) return {
 		end
     end,
 
-    create_task = function(self, task_name) --task is a string with the variable name of the task
+    create_task = function(self, task_name) --task_name is a string with the variable name of the task
         --Check to make sure task doesn't already exist
 
         --Create the task
@@ -269,7 +269,7 @@ end
 
 
 
---Base class for tasks. Never called directly, only subclassed
+--- Base class for tasks. Never called directly, only subclassed
 function Task(ship_states) return {
 
 	name = '',
