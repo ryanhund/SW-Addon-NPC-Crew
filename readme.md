@@ -1,9 +1,9 @@
 # To-do:
 
-## Task logic
+## Finish before beta-0.1
 
+### Task logic
 - Give/take item primitive
-- Optional/required crewmembers 
 - Component branching
 - Helm interaction
 - Manually stop ongoing task
@@ -11,22 +11,30 @@
 - Wait for user input
 - Task overrides
 - More flexible task creation: see discussion below
-- Complete task method for teardown tasks
+- "Complete task" method for teardown tasks
 
-## Ship features
+### Ship Features
+
 - Distinguish between loaded and unloaded in ship and task logic
-- Implement vehicle movement while unloaded
 
-## Ship creation interface
+### Ship creation interface
 
 - Tasks attached to ships rather than global
 - All data about a particular vehicle stored in one table
-- Allow more than one ship of each type to spawn (custom names?)
-- Consider moving object spawn logic outside of Ship:init
 
-## The Big Kahuna
+### The Big Kahuna
 
 - Refactor ship, crew, and task objects to separate data from methods
+
+## Finish before v1.0
+
+- Implement vehicle movement while unloaded
+- Allow more than one ship of each type to spawn (custom names?)
+- Consider moving object spawn logic outside of Ship.init()
+
+## Finish before v2.0
+
+- Optional/required crewmembers 
 
 # Feature Discussion
 
