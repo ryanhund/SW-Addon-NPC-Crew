@@ -517,6 +517,34 @@ g_tasks = {
 		}
 
 	} end,
+
+	['ahead full'] = function() return{
+		name = 'throttle ahead full',
+		priority = 1,
+		required_crew = {'Captain'},
+
+		task_components = {
+			make_task_component('assign_crew'),
+			make_task_component('wait','wait1',1),
+			make_task_component('create_popup','Captain','All ahead full, aye'),
+			make_task_component('set_seated', 'Captain', 'Captain'),
+			make_task_component('press_button', 'clutch_up'),
+		}
+	} end,
+
+	['stop'] = function() return{
+		name = 'all stop',
+		priority = 1,
+		required_crew = {'Captain'},
+
+		task_components = {
+			make_task_component('assign_crew'),
+			make_task_component('wait','wait1',1),
+			make_task_component('create_popup','Captain','All stop, aye'),
+			make_task_component('set_seated', 'Captain', 'Captain'),
+			make_task_component('press_button', 'clutch_down'),
+		}
+	} end,
 }
 
 
