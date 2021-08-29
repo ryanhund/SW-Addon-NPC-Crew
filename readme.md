@@ -8,7 +8,7 @@
 - Helm interaction
 - Manually stop ongoing task
 - Stop all ongoing tasks
-- Wait for user input
+- [DONE 8/28] Wait for user input
 - Task overrides
 - More flexible task creation: see discussion below
 - "Complete task" method for teardown tasks
