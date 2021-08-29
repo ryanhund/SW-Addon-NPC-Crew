@@ -112,7 +112,7 @@ function Ship(ship_data) return {
 			end 
 
             if is_complete then 
-                self:complete_task(task_id)
+                self:complete_task(task.task_name)
             end 
         end
 
