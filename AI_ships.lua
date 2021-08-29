@@ -15,6 +15,7 @@ function Ship(ship_data) return {
         sensors = {}, --external sensor input (speed, GPS, etc)
         onboard_information = {}, --onboard states such as whether the lights are on
 		popups = {},
+		user_input_stack = {}, --a list of trigger phrases created by tasks awaiting user input
 	},
 	map_markers = {},
 
@@ -389,6 +390,22 @@ function Task(ship_states) return {
 		return true
 	end,
 
+	--- Halt task execution to wait for a specific command from a player
+	await_user_input = function(self, command)
+		if not self.ship_states.user_input_stack[command] then 
+			-- Initialize await: add a new command to the stack
+			self.ship_states.user_input_stack[command] = {called = false}
+			debugLog('New command added: '..command)
+			printTable(self.ship_states.user_input_stack, 'Stack')
+		elseif self.ship_states.user_input_stack[command].called then 
+			--remove the command from the stack
+			self.ship_states.user_input_stack[command] = nil
+			return true 
+		end 
+		
+		return false 
+	end,
+
 }
 end 
 
@@ -486,6 +503,19 @@ g_tasks = {
 			make_task_component('set_seated', 'Captain', 'bed1'),
 			make_task_component('wait', 'wait1', 7.5)
 		},
+	} end,
+
+	['undefined naptime'] = function() return{
+		name = 'undefined naptime',
+		priority = 2,
+		required_crew = {'Captain'},
+
+		task_components = {
+			make_task_component('assign_crew'),
+			make_task_component('set_seated', 'Captain', 'bed1'),
+			make_task_component('await_user_input', 'wake up'),
+		}
+
 	} end,
 }
 
@@ -626,7 +656,9 @@ function onChatMessage(peer_id, sender_name, message)
 		local is_task_found = find_table_index(task_name, g_tasks) --This could change if tasks become ship-specific
 		if is_task_found then 
 			g_savedata.ships[ship_id]:create_task(task_name)
-		else 
+		elseif g_savedata.ships[ship_id].states.user_input_stack[task_name] then 
+			g_savedata.ships[ship_id].states.user_input_stack[task_name].called = true 
+		else
 			debugLog('No task found with that name')
 		end 
 	end 
@@ -1105,7 +1137,11 @@ function find_ship_id(ship_name)
 	return _
 end
 
--- Check if a given key exists in an unordered table
+
+
+--- Check if a given key exists in an unordered table
+--- @param v The key to find
+--- @param t table The table to search
 function find_table_index(v,t)
 	local _ = false
 	if t then
@@ -1115,6 +1151,20 @@ function find_table_index(v,t)
 	end
 	return _
 end
+
+--- Check if a given value exists in an unordered table
+--- @param v The value to find
+--- @param t table The table to search
+function find_table_value(v,t)
+	local _ = false
+	if t then
+		for index,value in pairs(t)do
+		_=_ or (v==value)
+		end
+	end
+	return _
+end
+
 
 -------------------------------------------------------------------
 --
