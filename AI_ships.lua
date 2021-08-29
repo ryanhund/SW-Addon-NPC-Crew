@@ -87,7 +87,7 @@ function Ship(ship_data) return {
             local values, is_success = server.getVehicleDial(self.states.addon_information.id, 'sensor'..tostring(sensor_data.id))
 			if is_success then 
 				if sensor_data.bool then 
-					sensor_data.value = (values['value'] > 0) and true or false
+					sensor_data.value = (values['value'] > 0)
 				else
 					sensor_data.value = values['value']
 				end
@@ -193,7 +193,7 @@ function Ship(ship_data) return {
 	--debug function to print sensor data
 	print_sensor_data = function(self)
 		for sensor_name, sensor_data in pairs(self.states.sensors) do 
-			debugLog(sensor_name..': '..sensor_data.value)
+				debugLog(sensor_name..': '..tostring(sensor_data.value))
 		end
 	end,
 
@@ -393,18 +393,33 @@ function Task(ship_states) return {
 		return true 
 	end,
 
-	--- Returns true if and only if the entire function is true
-	--- Function is evaluated left to right
-	--- args are alternating information to evaluate (sensors) and conditionals
+	--- Returns true if and only if the entire function is true.
+	--- Function is evaluated left to right.
+	--- Args are alternating information to evaluate (sensors) and conditionals.
 	evaluate_conditional = function(self, ...) 
 		local terms = {...}
-		if #terms == 1 then return (self.ship_states.sensors[terms[1]].value and true or false) end 
+		if #terms == 1 then return (self.ship_states.sensors[terms[1]].value) end 
 		for i=1,#terms-1,2 do 
 			local a = (type(terms[i]) ~= 'string') and terms[i] or self.ship_states.sensors[terms[i]].value
 			local b = (type(terms[i+2]) ~= 'string') and terms[i+2] or self.ship_states.sensors[terms[i+2]].value
 			if not self.conditionals[terms[i+1]](a,b) then return false end
 		end 
 		return true
+	end,
+
+	--- Implements basic branching - execute one task component if the condition is true, a different component if false.
+	--- This method always returns true, meaning it will only execute once.
+	--- @param condition any String or Table to pass to self:evaluate_conditional()
+	--- @param component_if_true table Task component and optional args if statement evaluates to true
+	--- @param component_if_false table Task component and optional args if statement evaluates to false
+	if_then_else = function(self, condition, component_if_true, component_if_false)
+		-- pass the conditional to evaluate_conditional, can handle multiple arguments
+		local is_success = self:evaluate_conditional(type(condition) == 'table' and table.unpack(condition) or condition)
+		local args = is_success and component_if_true or component_if_false 
+		local component = make_task_component(table.unpack(args))
+		if not component.component then return true end 
+		local is_complete, task_failure = self[component.component](self, table.unpack(component.args))
+		return true, task_failure
 	end,
 
 	--- Halt task execution to wait for a specific command from a player
@@ -485,10 +500,9 @@ g_tasks = {
 			make_task_component('wait', 'wait2', 2),
 			make_task_component('create_popup','Captain','Turn on main power'),
 			make_task_component('wait', 'wait3', 1.5),
-			make_task_component('create_popup', 'Engineer', 'Turning on main power'),
-			make_task_component('press_button', 'master_power'),
+			make_task_component('if_then_else', 'bool_main_power', {'create_popup', 'Engineer', 'Main power is already on'}, {'press_button', 'master_power'}),
 			make_task_component('wait', 'wait4', 1.2),
-			make_task_component('create_popup', 'Engineer', 'Power on, enabling electrical systems'),
+			make_task_component('create_popup', 'Engineer', 'Turning on electrical systems'),
 			make_task_component('wait', 'wait5', 0.75),
 			make_task_component('press_button', 'Console Lights'),
 			make_task_component('wait', 'wait_for_console_lights', 0.3),
@@ -531,8 +545,23 @@ g_tasks = {
 			make_task_component('assign_crew'),
 			make_task_component('set_seated', 'Captain', 'bed1'),
 			make_task_component('await_user_input', 'wake up'),
-		}
+	}
 
+	} end,
+
+	['check power status'] = function() return{
+		name = 'check power',
+		priority = 2,
+		required_crew = {'Engineer'},
+
+		task_components = {
+			make_task_component('assign_crew'),
+			make_task_component('set_seated', 'Engineer', 'Electrical Control'),
+			make_task_component('evaluate_conditional', 'bool_main_power'),
+			make_task_component('create_popup','Engineer','Main power is on'),
+
+
+		}
 	} end,
 
 	['ahead full'] = function() return{
