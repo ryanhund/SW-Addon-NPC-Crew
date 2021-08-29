@@ -6,7 +6,7 @@
 - Give/take item primitive
 - Component branching
 - Helm interaction
-- Manually stop ongoing task
+- [DONE 8/29] Manually stop ongoing task
 - Stop all ongoing tasks
 - [DONE 8/28] Wait for user input
 - Task overrides
