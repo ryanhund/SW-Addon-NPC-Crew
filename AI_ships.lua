@@ -112,11 +112,7 @@ function Ship(ship_data) return {
 			end 
 
             if is_complete then 
-                --Return crew states to idle 
-                for crew_name, crewmember in pairs(task.task_object.assigned_crew) do 
-                    crewmember:complete_task()
-                end
-                self.tasks[k] = nil --remove the completed task 
+                self:complete_task(k)
             end 
         end
 
@@ -159,6 +155,19 @@ function Ship(ship_data) return {
         --Store the task in the ship's tasks table
         table.insert(self.tasks, {task_name = task_name, task_object = task}) --'task_name' is the variable name of the task (eg, turn_on_the_lights).
     end,
+
+	complete_task = function(self, task_name)
+		local task_id = find_task_by_name(task_name, self.tasks)
+		-- Sanity check for existence of task
+		if not task_id then return false end
+		-- Return crew states to idle 
+		for crew_name, crewmember in pairs(self.tasks[task_id].task_object.assigned_crew) do 
+			crewmember:complete_task()
+		end
+		
+		self.tasks[task_id] = nil --remove the completed task 
+		return true 
+	end,
 
 	on_vehicle_load = function(self)
 		self.states.addon_information.sim.state = 'loaded'
@@ -547,9 +556,6 @@ g_tasks = {
 	} end,
 }
 
-
---Task:init('Turn on the lights', 3, {'Engineer'}, )
-
 -------------------------------------------------------------------
 --
 --	Ship Creation
@@ -560,8 +566,9 @@ function create_ship(ship_name)
 	return g_ships[ship_name]
 end 
 
-function create_ship_squirrel(user_id)
+function create_ship_squirrel(user_id, custom_name)
 	local ship_data = create_ship('squirrel')
+	ship_data.custom_name = custom_name or ship_data.name
 	ship_data.spawn_transform = findSuitableZone(user_id, true)
 	table.insert(g_savedata.ships, Ship(ship_data))
 	local ship_id = #g_savedata.ships
@@ -686,6 +693,13 @@ function onChatMessage(peer_id, sender_name, message)
 			g_savedata.ships[ship_id]:create_task(task_name)
 		elseif g_savedata.ships[ship_id].states.user_input_stack[task_name] then 
 			g_savedata.ships[ship_id].states.user_input_stack[task_name].called = true 
+		elseif command[2] == 'stop' then 
+			local task_name = table.concat(command, ' ', 3)
+			if g_savedata.ships[ship_id]:complete_task(task_name) then 
+				debugLog('Stopped task '..task_name..' on vehicle '..ship_id..'.')
+			else
+				debugLog('Could not end task: no task found with that name')
+			end  
 		else
 			debugLog('No task found with that name')
 		end 
@@ -1165,7 +1179,15 @@ function find_ship_id(ship_name)
 	return _
 end
 
-
+function find_task_by_name(task_name, t)
+	local _ = false
+	if t then
+		for index,value in pairs(t)do
+		_=(task_name==value.task_name) and index or _
+		end
+	end
+	return _
+end
 
 --- Check if a given key exists in an unordered table
 --- @param v The key to find
