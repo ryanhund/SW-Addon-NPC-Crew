@@ -4,7 +4,7 @@
 
 ### Task logic
 - Give/take item primitive
-- Component branching
+- [DONE 8/29] Component branching
 - Helm interaction
 - [DONE 8/29] Manually stop ongoing task
 - Stop all ongoing tasks
