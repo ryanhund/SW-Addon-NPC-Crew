@@ -97,7 +97,7 @@ function Ship(ship_data) return {
         end 
 
         --loop through ongoing tasks and update each in turn
-        for k, task in pairs(self.tasks) do 
+        for task_id, task in pairs(self.tasks) do 
             local is_complete = false 
             is_complete = task.task_object:update()
 
@@ -112,7 +112,7 @@ function Ship(ship_data) return {
 			end 
 
             if is_complete then 
-                self:complete_task(k)
+                self:complete_task(task_id)
             end 
         end
 
@@ -159,7 +159,10 @@ function Ship(ship_data) return {
 	complete_task = function(self, task_name)
 		local task_id = find_task_by_name(task_name, self.tasks)
 		-- Sanity check for existence of task
-		if not task_id then return false end
+		if not task_id then 
+			debugLog('Could not find task '..task_name..'.')
+			return false 
+		end
 		-- Return crew states to idle 
 		for crew_name, crewmember in pairs(self.tasks[task_id].task_object.assigned_crew) do 
 			crewmember:complete_task()
@@ -342,6 +345,11 @@ function Task(ship_states) return {
 			debugLog('Completed task component '..component.component) 
 		end 
 		return false 
+	end,
+
+	--- Teardown method
+	terminate = function(self)
+
 	end,
 	
 	assign_crew = function(self)
@@ -541,7 +549,7 @@ g_tasks = {
 		}
 	} end,
 
-	['stop'] = function() return{
+	['all stop'] = function() return{
 		name = 'all stop',
 		priority = 1,
 		required_crew = {'Captain'},
@@ -1270,6 +1278,7 @@ function test_tasks()
 		{name = 'Is crew value a table?', arg = 'required_crew', test = function(required_crew) if type(required_crew) == 'table' then return true else return false end end},
 		{name = 'Are the task components of valid type?', arg = 'task_components', test = function(components) for k,v in ipairs(components) do 
 																					if type(v) == 'table' and v.component then return true else return false end end end},
+		{name = 'Is the task name a restricted word?', arg = 'name', test = function(name) return (name == 'stop') and false or true end},
 		
 	}
 	for task_name, task_subclass in pairs(g_tasks) do 
