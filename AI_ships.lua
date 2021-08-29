@@ -1156,3 +1156,37 @@ function addPopup(popup_id, char_id, table_to_store, popup_text, popup_lifespan 
 	server.setPopup(-1, popup_id, '', true, popup_text, 0, 0, 0, 10, nil, char_id)
 	table.insert(table_to_store, {text=popup_text, id=popup_id, active=true, lifespan = popup_lifespan})
 end	
+
+-------------------------------------------------------------------
+--
+--	 Unit Testing
+--
+-------------------------------------------------------------------
+
+function test_tasks()
+	local tests = {
+		{name = 'Has name?', arg = 'name', test = function(name) if name then return true else return false end end},
+		{name = 'Valid priority?', arg = 'priority', test = function(priority) if priority >= 0 and priority <= 3 then return true else return false end end},
+		{name = 'Is crew value a table?', arg = 'required_crew', test = function(required_crew) if type(required_crew) == 'table' then return true else return false end end},
+		{name = 'Are the task components of valid type?', arg = 'task_components', test = function(components) for k,v in ipairs(components) do 
+																					if type(v) == 'table' and v.component then return true else return false end end end},
+		
+	}
+	for task_name, task_subclass in pairs(g_tasks) do 
+		task_object = task_subclass()
+		debugLog('Testing task '..task_name..'...')
+		local test_results = {}
+		local passed = 0
+		for index, test in ipairs(tests) do 
+			local is_success = test.test(task_object[test.arg])
+			if is_success then passed = passed + 1 end 
+			table.insert(test_results, {name = test.name, passed = is_success})
+		end 
+		debugLog('Passed '..passed..'/'..#test_results..' tests.')
+		for index, result in ipairs(test_results) do 
+			if not result.passed then 
+				debugLog('Failed test #'..index..': '..result.name)
+			end 
+		end 
+	end 
+end 
