@@ -31,6 +31,7 @@
 - Implement vehicle movement while unloaded
 - Allow more than one ship of each type to spawn (custom names?)
 - Consider moving object spawn logic outside of Ship.init()
+- Implement unit tests for all user-defined data
 
 ## Finish before v2.0
 
