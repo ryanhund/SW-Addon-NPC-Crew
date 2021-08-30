@@ -59,7 +59,7 @@ function Ship(ship_data) return {
 			end 
 
 		end 
-		printTable(self.crew, 'Crew		')
+		--printTable(self.crew, 'Crew		')
 		--printTable(spawned_objects, 'spawned objects')
 
         self.states.addon_information.id = parent_vehicle_id 
@@ -153,7 +153,7 @@ function Ship(ship_data) return {
             end 
         end 
 		debugLog('Created task '..task_name)
-		printTable(task, 'Task data ')
+		--printTable(task, 'Task data ')
         --Store the task in the ship's tasks table
         table.insert(self.tasks, {task_name = task_name, task_object = task}) --'task_name' is the variable name of the task (eg, turn_on_the_lights).
     end,
@@ -440,6 +440,42 @@ function Task(ship_states) return {
 		return false 
 	end,
 
+	--- Set one or more helm values. 
+	--- If the helm is occupied by a character, the helm will retain the values until they are overwritten.
+	--- @param seat_name string The name of the seat as it appears on the vehicle.
+	--- @param commands table A table of buttons and values to send to the helm.
+	--- @param stop_command string Optional, if set the order will be repeatedly sent to the helm until the player types in the stop command.
+	manipulate_helm = function(self, seat_name, commands, stop_command)
+		local map_name_to_num = {
+			['axis_ws'] = 1,
+			['axis_da'] = 2,
+			['axis_ud'] = 3,
+			['axis_rl'] = 4,
+			['button_1'] = 5,
+			['button_2'] = 6,
+			['button_3'] = 7,
+			['button_4'] = 8,
+			['button_5'] = 9,
+			['button_6'] = 10,
+		}
+		
+		local to_vehicle = {0, 0, 0, 0, false, false, false, false, false, false,}
+
+		for button_name, button_value in pairs(commands) do 
+			to_vehicle[map_name_to_num[button_name]] = button_value
+		end 
+
+		printTable(to_vehicle, 'To vehicle')
+		local vehicle_id = self.ship_states.addon_information.id
+		server.setVehicleSeat(vehicle_id, seat_name, table.unpack(to_vehicle))
+		
+		if stop_command then 
+			local received_command = self:await_user_input(stop_command)
+			if not received_command then return false end 
+		end 
+		return true 
+	end,
+
 }
 end 
 
@@ -635,6 +671,49 @@ g_ships = {
 					make_task_component('press_button', 'clutch_down'),
 				}
 			} end,
+
+			['left standard rudder'] = function() return{
+				name = 'left rudder',
+				priority = 1,
+				required_crew = {'Captain'},
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('wait','wait1',1),
+					make_task_component('create_popup','Captain','Left standard rudder, aye'),
+					make_task_component('set_seated', 'Captain', 'Captain'),
+					make_task_component('manipulate_helm', 'Captain', {axis_da = -0.5}),
+				}
+			} end,
+
+			['right standard rudder'] = function() return{
+				name = 'right rudder',
+				priority = 1,
+				required_crew = {'Captain'},
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('wait','wait1',1),
+					make_task_component('create_popup','Captain','Right standard rudder, aye'),
+					make_task_component('set_seated', 'Captain', 'Captain'),
+					make_task_component('manipulate_helm', 'Captain', {axis_da = 0.5}),
+				}
+			} end,
+
+			['rudder midships'] = function() return{
+				name = 'rudder midships',
+				priority = 1,
+				required_crew = {'Captain'},
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('wait','wait1',0.5),
+					make_task_component('create_popup','Captain','Rudder midships, aye'),
+					make_task_component('set_seated', 'Captain', 'Captain'),
+					make_task_component('manipulate_helm', 'Captain', {axis_da = 0}),
+				}
+			} end,
+
 		}
 	}
 }
