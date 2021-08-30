@@ -20,6 +20,7 @@
 
 ### Ship creation interface
 
+- Spawn zones
 - Tasks attached to ships rather than global
 - All data about a particular vehicle stored in one table
 
