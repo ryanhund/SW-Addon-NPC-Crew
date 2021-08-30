@@ -20,7 +20,7 @@
 
 ### Ship creation interface
 
-- Spawn zones
+- [DONE 8/30] Spawn zones
 - Tasks attached to ships rather than global
 - All data about a particular vehicle stored in one table
 
@@ -38,6 +38,7 @@
 ## Finish before v2.0
 
 - Optional/required crewmembers 
+- Check if any vehicle is in spawn zone before spawning, using server.isInTransformArea()
 
 # Feature Discussion
 

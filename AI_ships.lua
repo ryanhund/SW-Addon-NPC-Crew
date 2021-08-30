@@ -599,14 +599,14 @@ g_tasks = {
 --
 -------------------------------------------------------------------
 
-function create_ship(ship_name)
-	return g_ships[ship_name]
-end 
-
-function create_ship_squirrel(user_id, custom_name)
-	local ship_data = create_ship('squirrel')
-	ship_data.custom_name = custom_name or ship_data.name
-	ship_data.spawn_transform = findSuitableZone(user_id, true)
+function create_ship(user_id, ship_name, custom_name, is_ocean_zone)
+	if not g_ships[ship_name] then
+		debugLog('Ship not found.')
+		return false 
+	end
+	local ship_data = g_ships[ship_name]
+	ship_data.custom_name = custom_name or ship_data.name 
+	ship_data.spawn_transform = findSuitableZone(user_id, ship_data, is_ocean_zone)
 	table.insert(g_savedata.ships, Ship(ship_data))
 	local ship_id = #g_savedata.ships
 	g_savedata.ships[ship_id]:init(ship_data)
@@ -628,6 +628,8 @@ g_ships = {
 			'engine2_rps',
 
 		},
+		size = 'small', --small, medium, or large
+		vehicle_type = 'boat', --boat, fixed_wing, rotorcraft, ground
 		crew = {
 			captain = Crew('Captain','officer_of_the_deck'),
 			engineer= Crew('Engineer', 'engineer'),
@@ -675,21 +677,19 @@ function onCreate(is_world_create)
 		end
 	end
 
-	g_zones = server.getZones()
+	g_zones = server.getZones('spawn_location')
 	g_zones_hospital = server.getZones("hospital")
 
-	-- filter zones to only include mission zones
-	for zone_index, zone_object in pairs(g_zones) do
-		local is_mission_zone = false
-		for zone_tag_index, zone_tag_object in pairs(zone_object.tags) do
-			if zone_tag_object == "type=mission_zone" then
-				is_mission_zone = true
-			end
-		end
-		if is_mission_zone == false then
-			g_zones[zone_index] = nil
-		end
-	end
+	-- Add spawn orientation to zone parameters
+	for zone_index, zone_object in pairs(g_zones) do 
+		for tag_index, tag_object in pairs(zone_object.tags) do
+			if string.find(tag_object, "spawn_orientation=") ~= nil then 
+				zone_object.orientation = tonumber(string.sub(tag_object, 19))
+			else 
+				zone_object.orientation = 0
+			end 
+		end 
+	end 
 end
 
 function onPlayerJoin(steamid, name, peerid, admin, auth)
@@ -753,9 +753,12 @@ function onCustomCommand(message, user_id, admin, auth, command, one, ...)
     end
 
 	if command == "?spawnship" and admin == true then 
-		local ship_id = create_ship_squirrel(user_id) --generalize this later 
+		local params = {...}
+		--WIP
+		local custom_name = params[1] 
+		local is_ocean_zone = (params[2] == 'ocean')
+		local ship_id = create_ship(user_id, one, custom_name, is_ocean_zone)
 		debugLog(ship_id)
-
 	end 
 
 	if command == '?createtaskdebug' and admin == true then 
@@ -815,6 +818,7 @@ function onCustomCommand(message, user_id, admin, auth, command, one, ...)
 	if command == "?printships" and admin == true then
 		for ship_name, ship_data in pairs(g_savedata.valid_ships) do 
 			debugLog('	'..ship_name)
+			printTable(ship_data, 'Ship ')
 		end
 		local len = tableLength(g_savedata.valid_ships)
 		debugLog('	Total: '..tostring(len))
@@ -1183,14 +1187,84 @@ function spawnObjectType(spawn_transform, location, object_descriptor, parent_ve
 	return component.id
 end
 
-function findSuitableZone(player_id, is_ocean_zone)
+-- checks if a specific tag string appears in a table of tag strings
+function hasTag(tags, tag)
+	for k, v in pairs(tags) do
+		if v == tag then
+			return true
+		end
+	end
+
+	return false
+end
+
+function findSuitableZone(player_id, vehicle_data, is_ocean_zone)
 	local min_range = 0 
 	local max_range = 1500
-	if is_ocean_zone then 
+	if is_ocean_zone then --Sanity check
 		local ocean_transform, is_ocean_found = server.getOceanTransform(server.getPlayerPos(player_id), min_range, max_range)
 		return ocean_transform
-	end
-	--To be expanded with custom, non-ocean zones
+	else 
+		-- Find all qualifying zones
+		local zones = findSuitableZones(vehicle_data)
+
+		-- Find the nearest zone among qualifying zones
+		local player_transform = server.getPlayerPos(player_id)
+		local distance_to_zone = math.huge
+		local selected_zone_index
+
+		for zone_index, zone_object in pairs(zones) do 
+			local d = matrix.distance(player_transform, zone_object.transform)
+			if d < distance_to_zone then 
+				distance_to_zone = d 
+				selected_zone_index = zone_index 
+			end 
+		end 
+
+		debugLog('Spawning vehicle at zone '..zones[selected_zone_index].name..'.')
+		local spawn_transform = zones[selected_zone_index].transform
+		local spawn_direction = zones[selected_zone_index].orientation 
+
+		local x, z = bearing_to_vector(spawn_direction) 
+		local rotation_matrix = matrix.rotationToFaceXZ(x, z)
+		local spawn_transform = matrix.multiply(spawn_transform, rotation_matrix)
+		return spawn_transform
+	end 
+end 
+
+--- Returns a table of suitable zones
+function findSuitableZones(vehicle_data)
+	local zones = {}
+	for zone_index, zone_object in pairs(g_zones) do 
+		local is_filter = false 
+
+		-- Filter size
+		if vehicle_data.size == "small" then
+			if hasTag(zone_object.tags, "size=small") == false and hasTag(zone_object.tags, "size=medium") == false and hasTag(zone_object.tags, "size=large") == false then
+				is_filter = true
+			end
+		elseif vehicle_data.size == "medium" then
+			if hasTag(zone_object.tags, "size=medium") == false and hasTag(zone_object.tags, "size=large") == false then
+				is_filter = true
+			end
+		elseif vehicle_data.size == "large" then
+			if hasTag(zone_object.tags, "size=large") == false then
+				is_filter = true
+			end
+		end
+
+		-- Filter for type of vehicle
+		if not hasTag(zone_object.tags, 'vehicle_type='..vehicle_data.vehicle_type) then 
+			is_filter = true 
+		end 
+
+		if is_filter == false then 
+			table.insert(zones, zone_object)
+		end 
+	end 
+
+	debugLog('Found '..tableLength(zones)..' qualifying zones out of '..tableLength(g_zones)..' total.')
+	return zones 
 end 
 
 -- Splits string, default separator is whitespace (%s)
@@ -1251,6 +1325,17 @@ function find_table_value(v,t)
 	end
 	return _
 end
+
+--- Convert compass bearing (north as 0, clockwise) to a unit vector
+--- @param compass_bearing number The compass bearing to read
+--- @return number x The x-component of the unit vector
+--- @return number y The y-component of the unit vector
+function bearing_to_vector(compass_bearing)
+	local currentHeadingDeg = 450 - compass_bearing % 360 --convert compass bearing to degrees
+	local unit_x,unit_y = math.cos(math.rad(currentHeadingDeg)),math.sin(math.rad(currentHeadingDeg))
+
+	return unit_x, unit_y
+end 
 
 
 -------------------------------------------------------------------
