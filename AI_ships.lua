@@ -16,6 +16,7 @@ function Ship(ship_data) return {
         onboard_information = {}, --onboard states such as whether the lights are on
 		popups = {},
 		user_input_stack = {}, --a list of trigger phrases created by tasks awaiting user input
+		available_tasks = {}, --a list of all tasks associated with the ship
 	},
 	map_markers = {},
 
@@ -67,6 +68,7 @@ function Ship(ship_data) return {
         self.states.addon_information.popups = {}
 		self.states.addon_information.sim = {}
 		self.states.addon_information.name = ship_data.name
+		self.states.available_tasks = ship_data.available_tasks
 
 		if server.getVehicleSimulating(self.states.addon_information.id) then
 			self.states.addon_information.sim.state = 'loaded'
@@ -135,7 +137,7 @@ function Ship(ship_data) return {
         --Check to make sure task doesn't already exist
 
         --Create an instance of the task object
-        local task = create_task(task_name, self.states)
+        local task = create_task(task_name, self.states, self.states.available_tasks)
 
         --Populate the task object with crewmembers
         for _,role in pairs(task.required_crew) do 
@@ -456,142 +458,11 @@ function make_task_component(component, ...)
 	return {component = component, args = args or {}} 
 end
 
-function create_task(task_name, ship_states, ...)
+function create_task(task_name, ship_states, task_list, ...)
 	local args = {...}
 	local base = Task(ship_states)
-	return conc(base, g_tasks[task_name](table.unpack(args)))
+	return conc(base, task_list[task_name](table.unpack(args)))
 end 
-
-g_tasks = {
-	['turn on the lights'] = function() return { --This function can support an arbitrary number of args
-		name = 'turn on the lights', -- This is the name that will be used to spawn the task
-		priority = 3,
-		required_crew = {'Engineer'}, --Has to be a table even if there's only one
-		can_override = {
-
-		},
-
-		task_components = {
-			make_task_component('assign_crew'),
-			make_task_component('set_seated', 'Engineer', 'Electrical Control'),
-			make_task_component('create_popup', 'Engineer', 'Waiting for main power', 60),
-			make_task_component('evaluate_conditional', 'bool_main_power'),
-			make_task_component('create_popup', 'Engineer', 'Turning on the lights'),
-			make_task_component('wait', 'pre_switch_wait', 1.5),
-			make_task_component('press_button', 'Console Lights'),
-			make_task_component('wait', 'wait_for_console_lights', 0.7),
-			make_task_component('press_button', 'Exterior Lights'),
-			make_task_component('wait', 'wait_end', 2.5),
-
-		},
-	} end,
-
-	['cold start'] = function() return {
-		name = 'cold start',
-		priority = 2,
-		required_crew = {'Captain', 'Engineer'},
-
-		task_components = {
-			make_task_component('assign_crew'),
-			make_task_component('set_seated', 'Captain', 'Captain'),
-			make_task_component('set_seated', 'Engineer', 'Electrical Control'),
-			make_task_component('wait', 'wait1', 1.5),
-			make_task_component('create_popup', 'Captain', 'Begin cold start procedure'),
-			make_task_component('wait', 'wait2', 2),
-			make_task_component('create_popup','Captain','Turn on main power'),
-			make_task_component('wait', 'wait3', 1.5),
-			make_task_component('if_then_else', 'bool_main_power', {'create_popup', 'Engineer', 'Main power is already on'}, {'press_button', 'master_power'}),
-			make_task_component('wait', 'wait4', 1.2),
-			make_task_component('create_popup', 'Engineer', 'Turning on electrical systems'),
-			make_task_component('wait', 'wait5', 0.75),
-			make_task_component('press_button', 'Console Lights'),
-			make_task_component('wait', 'wait_for_console_lights', 0.3),
-			make_task_component('press_button', 'Exterior Lights'),
-			make_task_component('wait', 'wait6', 1),
-			make_task_component('create_popup', 'Engineer', 'Electrical systems online'),
-			make_task_component('wait', 'wait7', 1),
-			make_task_component('set_seated', 'Engineer', 'Engineer'),
-			make_task_component('create_popup', 'Captain', 'Copy, starting the engine'),
-			make_task_component('press_button', 'throttle_up'),
-			make_task_component('wait', 'wait8', 2.5),
-			make_task_component('press_button','Engine Start'),
-			make_task_component('wait', 'wait9', 2.5),
-			make_task_component('evaluate_conditional','engine1_rps','>',10),
-			make_task_component('evaluate_conditional','engine2_rps','>',10),
-			make_task_component('create_popup','Engineer','Both engines holding at 20 RPS'),
-			make_task_component('wait', 'wait10', 2),
-			make_task_component('create_popup', 'Captain', 'Understood, looks like we\'re ready to go'),
-		}
-	} end,
-
-	['emergency naptime'] = function() return {
-		name = 'emergency nap',
-		priority = 0,
-		required_crew = {'Captain'},
-
-		task_components = {
-			make_task_component('assign_crew'),
-			make_task_component('set_seated', 'Captain', 'bed1'),
-			make_task_component('wait', 'wait1', 7.5)
-		},
-	} end,
-
-	['undefined naptime'] = function() return{
-		name = 'undefined naptime',
-		priority = 2,
-		required_crew = {'Captain'},
-
-		task_components = {
-			make_task_component('assign_crew'),
-			make_task_component('set_seated', 'Captain', 'bed1'),
-			make_task_component('await_user_input', 'wake up'),
-	}
-
-	} end,
-
-	['check power status'] = function() return{
-		name = 'check power',
-		priority = 2,
-		required_crew = {'Engineer'},
-
-		task_components = {
-			make_task_component('assign_crew'),
-			make_task_component('set_seated', 'Engineer', 'Electrical Control'),
-			make_task_component('evaluate_conditional', 'bool_main_power'),
-			make_task_component('create_popup','Engineer','Main power is on'),
-
-
-		}
-	} end,
-
-	['ahead full'] = function() return{
-		name = 'throttle ahead full',
-		priority = 1,
-		required_crew = {'Captain'},
-
-		task_components = {
-			make_task_component('assign_crew'),
-			make_task_component('wait','wait1',1),
-			make_task_component('create_popup','Captain','All ahead full, aye'),
-			make_task_component('set_seated', 'Captain', 'Captain'),
-			make_task_component('press_button', 'clutch_up'),
-		}
-	} end,
-
-	['all stop'] = function() return{
-		name = 'all stop',
-		priority = 1,
-		required_crew = {'Captain'},
-
-		task_components = {
-			make_task_component('assign_crew'),
-			make_task_component('wait','wait1',1),
-			make_task_component('create_popup','Captain','All stop, aye'),
-			make_task_component('set_seated', 'Captain', 'Captain'),
-			make_task_component('press_button', 'clutch_down'),
-		}
-	} end,
-}
 
 -------------------------------------------------------------------
 --
@@ -635,6 +506,136 @@ g_ships = {
 			engineer= Crew('Engineer', 'engineer'),
 		},
 		location = function() return g_savedata.valid_ships.Squirrel end,
+		available_tasks =  {
+			['turn on the lights'] = function() return { --This function can support an arbitrary number of args
+				name = 'turn on the lights', -- This is the name that will be used to spawn the task
+				priority = 3,
+				required_crew = {'Engineer'}, --Has to be a table even if there's only one
+				can_override = {
+		
+				},
+		
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('set_seated', 'Engineer', 'Electrical Control'),
+					make_task_component('create_popup', 'Engineer', 'Waiting for main power', 60),
+					make_task_component('evaluate_conditional', 'bool_main_power'),
+					make_task_component('create_popup', 'Engineer', 'Turning on the lights'),
+					make_task_component('wait', 'pre_switch_wait', 1.5),
+					make_task_component('press_button', 'Console Lights'),
+					make_task_component('wait', 'wait_for_console_lights', 0.7),
+					make_task_component('press_button', 'Exterior Lights'),
+					make_task_component('wait', 'wait_end', 2.5),
+		
+				},
+			} end,
+		
+			['cold start'] = function() return {
+				name = 'cold start',
+				priority = 2,
+				required_crew = {'Captain', 'Engineer'},
+		
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('set_seated', 'Captain', 'Captain'),
+					make_task_component('set_seated', 'Engineer', 'Electrical Control'),
+					make_task_component('wait', 'wait1', 1.5),
+					make_task_component('create_popup', 'Captain', 'Begin cold start procedure'),
+					make_task_component('wait', 'wait2', 2),
+					make_task_component('create_popup','Captain','Turn on main power'),
+					make_task_component('wait', 'wait3', 1.5),
+					make_task_component('if_then_else', 'bool_main_power', {'create_popup', 'Engineer', 'Main power is already on'}, {'press_button', 'master_power'}),
+					make_task_component('wait', 'wait4', 1.2),
+					make_task_component('create_popup', 'Engineer', 'Turning on electrical systems'),
+					make_task_component('wait', 'wait5', 0.75),
+					make_task_component('press_button', 'Console Lights'),
+					make_task_component('wait', 'wait_for_console_lights', 0.3),
+					make_task_component('press_button', 'Exterior Lights'),
+					make_task_component('wait', 'wait6', 1),
+					make_task_component('create_popup', 'Engineer', 'Electrical systems online'),
+					make_task_component('wait', 'wait7', 1),
+					make_task_component('set_seated', 'Engineer', 'Engineer'),
+					make_task_component('create_popup', 'Captain', 'Copy, starting the engine'),
+					make_task_component('press_button', 'throttle_up'),
+					make_task_component('wait', 'wait8', 2.5),
+					make_task_component('press_button','Engine Start'),
+					make_task_component('wait', 'wait9', 2.5),
+					make_task_component('evaluate_conditional','engine1_rps','>',10),
+					make_task_component('evaluate_conditional','engine2_rps','>',10),
+					make_task_component('create_popup','Engineer','Both engines holding at 20 RPS'),
+					make_task_component('wait', 'wait10', 2),
+					make_task_component('create_popup', 'Captain', 'Understood, looks like we\'re ready to go'),
+				}
+			} end,
+		
+			['emergency naptime'] = function() return {
+				name = 'emergency nap',
+				priority = 0,
+				required_crew = {'Captain'},
+		
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('set_seated', 'Captain', 'bed1'),
+					make_task_component('wait', 'wait1', 7.5)
+				},
+			} end,
+		
+			['undefined naptime'] = function() return{
+				name = 'undefined naptime',
+				priority = 2,
+				required_crew = {'Captain'},
+		
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('set_seated', 'Captain', 'bed1'),
+					make_task_component('await_user_input', 'wake up'),
+			}
+		
+			} end,
+		
+			['check power status'] = function() return{
+				name = 'check power',
+				priority = 2,
+				required_crew = {'Engineer'},
+		
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('set_seated', 'Engineer', 'Electrical Control'),
+					make_task_component('evaluate_conditional', 'bool_main_power'),
+					make_task_component('create_popup','Engineer','Main power is on'),
+		
+		
+				}
+			} end,
+		
+			['ahead full'] = function() return{
+				name = 'throttle ahead full',
+				priority = 1,
+				required_crew = {'Captain'},
+		
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('wait','wait1',1),
+					make_task_component('create_popup','Captain','All ahead full, aye'),
+					make_task_component('set_seated', 'Captain', 'Captain'),
+					make_task_component('press_button', 'clutch_up'),
+				}
+			} end,
+		
+			['all stop'] = function() return{
+				name = 'all stop',
+				priority = 1,
+				required_crew = {'Captain'},
+		
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('wait','wait1',1),
+					make_task_component('create_popup','Captain','All stop, aye'),
+					make_task_component('set_seated', 'Captain', 'Captain'),
+					make_task_component('press_button', 'clutch_down'),
+				}
+			} end,
+		}
 	}
 }
 
@@ -725,7 +726,7 @@ function onChatMessage(peer_id, sender_name, message)
 	local ship_id = find_ship_id(command[1]) 
 	if ship_id then 
 		local task_name = table.concat(command, ' ', 2)
-		local is_task_found = find_table_index(task_name, g_tasks) --This could change if tasks become ship-specific
+		local is_task_found = find_table_index(task_name, g_savedata.ships[ship_id].states.available_tasks) --This could change if tasks become ship-specific
 		if is_task_found then 
 			g_savedata.ships[ship_id]:create_task(task_name)
 		elseif g_savedata.ships[ship_id].states.user_input_stack[task_name] then 
@@ -824,8 +825,10 @@ function onCustomCommand(message, user_id, admin, auth, command, one, ...)
 		debugLog('	Total: '..tostring(len))
 	end
 
-	if command == "?printtestobjects" and admin == true then
-		printTable(g_savedata.valid_ships.Squirrel.objects, 'object_')
+	if command == "?unittest" and admin == true then
+		if one == 'tasks' then 
+			test_tasks()
+		end 
 	end
 
     if command == "?printtags" and admin == true then
@@ -1395,20 +1398,24 @@ function test_tasks()
 		{name = 'Is the task name a restricted word?', arg = 'name', test = function(name) return (name == 'stop') and false or true end},
 		
 	}
-	for task_name, task_subclass in pairs(g_tasks) do 
-		task_object = task_subclass()
-		debugLog('Testing task '..task_name..'...')
-		local test_results = {}
-		local passed = 0
-		for index, test in ipairs(tests) do 
-			local is_success = test.test(task_object[test.arg])
-			if is_success then passed = passed + 1 end 
-			table.insert(test_results, {name = test.name, passed = is_success})
-		end 
-		debugLog('Passed '..passed..'/'..#test_results..' tests.')
-		for index, result in ipairs(test_results) do 
-			if not result.passed then 
-				debugLog('Failed test #'..index..': '..result.name)
+	for ship_name, ship_data in pairs(g_ships) do 
+		debugLog('Testing tasks for ship: '..ship_data.name)
+		local tasks = ship_data.available_tasks
+		for task_name, task_subclass in pairs(tasks) do 
+			task_object = task_subclass()
+			debugLog('Testing task '..task_name..'...')
+			local test_results = {}
+			local passed = 0
+			for index, test in ipairs(tests) do 
+				local is_success = test.test(task_object[test.arg])
+				if is_success then passed = passed + 1 end 
+				table.insert(test_results, {name = test.name, passed = is_success})
+			end 
+			debugLog('Passed '..passed..'/'..#test_results..' tests.')
+			for index, result in ipairs(test_results) do 
+				if not result.passed then 
+					debugLog('Failed test #'..index..': '..result.name)
+				end 
 			end 
 		end 
 	end 

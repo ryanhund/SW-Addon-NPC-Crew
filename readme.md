@@ -21,7 +21,7 @@
 ### Ship creation interface
 
 - [DONE 8/30] Spawn zones
-- Tasks attached to ships rather than global
+- [DONE 8/30] Tasks attached to ships rather than global
 - All data about a particular vehicle stored in one table
 
 ### The Big Kahuna
