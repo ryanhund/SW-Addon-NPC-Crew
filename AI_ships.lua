@@ -441,7 +441,8 @@ function Task(ship_states) return {
 	end,
 
 	--- Set one or more helm values. 
-	--- If the helm is occupied by a character, the helm will retain the values until they are overwritten.
+	--- If the helm is occupied by a character, the helm will retain the values until they are overwritten. 
+	--- Warning: This method will overwrite all helm values to 0 or false unless explicitly specified otherwise.
 	--- @param seat_name string The name of the seat as it appears on the vehicle.
 	--- @param commands table A table of buttons and values to send to the helm.
 	--- @param stop_command string Optional, if set the order will be repeatedly sent to the helm until the player types in the stop command.
