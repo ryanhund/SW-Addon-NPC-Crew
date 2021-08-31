@@ -27,7 +27,7 @@
 
 ### The Big Kahuna
 
-- Refactor ship, crew, and task objects to separate data from methods
+- [DONE 8/31] Refactor ship, crew, and task objects to separate data from methods
 
 ## Finish before v1.0
 
