@@ -773,6 +773,10 @@ function onCreate(is_world_create)
 	end 
 end
 
+function onDestroy()
+
+end 
+
 function onPlayerJoin(steamid, name, peerid, admin, auth)
 	if g_savedata.ships ~= nil then
 		for k, mission_data in pairs(g_savedata.ships) do
@@ -1420,7 +1424,24 @@ function bearing_to_vector(compass_bearing)
 	return unit_x, unit_y
 end 
 
+--- Recursively looks through a given table and finds all of the functions. Returns a parallel table with values of true if the input value is a table, false otherwise.
+function find_functions(table)
+	local output_table = {}
 
+	for k, v in pairs(table) do 
+		if k ~= 'methods' then --Ignore the output table (which is also in g_savedata)
+			local vtype = type(v) 
+			if vtype == 'table' then 
+				-- Continue traversing the table
+				output_table[k] = find_functions(v)
+			elseif vtype == 'function' then 
+				output_table[k] = (vtype == 'function')
+			end 
+		end
+	end 
+
+	return output_table
+end 
 -------------------------------------------------------------------
 --
 --	 UI
