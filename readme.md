@@ -7,13 +7,13 @@
 - [DONE 8/29] Component branching
 - [DONE 8/30] Helm interaction
 - [DONE 8/29] Manually stop ongoing task
-- Stop all ongoing tasks
+- [DONE 8/31] Stop all ongoing tasks
 - [DONE 8/28] Wait for user input
 - Task overrides
 - More flexible task creation: see discussion below
 - "Complete task" method for teardown tasks
 - Add flag for whether multiple instances of a task can run simultaneously, check for duplicates at creation
-- Allow users to pass parameters to tasks
+- [DONE 8/31] Allow users to pass parameters to tasks
 
 ### Ship Features
 

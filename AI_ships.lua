@@ -429,6 +429,9 @@ Task = {
 	--- @param commands table A table of buttons and values to send to the helm.
 	--- @param stop_command string Optional, if set the order will be repeatedly sent to the helm until the player types in the stop command.
 	manipulate_helm = function(self, task_data, seat_name, commands, stop_command)
+		local this_helm = task_data.ship_states.helms[seat_name] 
+		local to_vehicle = this_helm or {0, 0, 0, 0, false, false, false, false, false, false,}
+	
 		local map_name_to_num = {
 			['axis_ws'] = 1,
 			['axis_da'] = 2,
@@ -442,16 +445,15 @@ Task = {
 			['button_6'] = 10,
 		}
 		
-		local to_vehicle = {0, 0, 0, 0, false, false, false, false, false, false,}
-
 		for button_name, button_value in pairs(commands) do 
 			to_vehicle[map_name_to_num[button_name]] = button_value
 		end 
 
-		--printTable(to_vehicle, 'To vehicle')
 		local vehicle_id = task_data.ship_states.addon_information.id
 		server.setVehicleSeat(vehicle_id, seat_name, table.unpack(to_vehicle))
 		
+		task_data.ship_states.helms[seat_name] = to_vehicle
+
 		if stop_command then 
 			local received_command = Task:await_user_input(task_data, stop_command)
 			if not received_command then return false end 
@@ -520,6 +522,7 @@ function create_ship(user_id, ship_name, custom_name, is_ocean_zone)
 			popups = {},
 			user_input_stack = {}, --a list of trigger phrases created by tasks awaiting user input
 			available_tasks = {}, --a list of all tasks associated with the ship
+			helms = {}, --A dynamically-generated table of all controllable seats or helms and their values
 		},
 		map_markers = {},
 	}
@@ -663,18 +666,26 @@ g_ships = {
 				}
 			} end,
 		
-			['ahead full'] = function() return{
-				name = 'throttle ahead full',
+			['ahead'] = function(order) 
+				
+				local orders = {
+					['slow'] = 0.55,
+					['half'] = 0.7,
+					['full'] = 1,
+				}
+
+				return{
+				name = 'throttle ahead',
 				priority = 1,
 				required_crew = {'Captain'},
 		
 				task_components = {
 					make_task_component('assign_crew'),
 					make_task_component('wait','wait1',1),
-					make_task_component('create_popup','Captain','All ahead full, aye'),
+					make_task_component('create_popup','Captain','All ahead '..order..', aye'),
 					make_task_component('set_seated', 'Captain', 'Captain'),
 					--make_task_component('press_button', 'clutch_up'),
-					make_task_component('manipulate_helm', 'Captain', {axis_ws = 1}),
+					make_task_component('manipulate_helm', 'Captain', {axis_ws = orders[order]}),
 
 				}
 			} end,
@@ -721,7 +732,19 @@ g_ships = {
 				}
 			} end,
 
-			['right standard rudder'] = function() return{
+			['right'] = function(angle) 
+				local params = {
+					['15'] = 0.17,
+					['30'] = 0.33,
+					['full'] = 0.5
+				}
+				local dialogue_params = {
+					['15'] = 'Right 15 degrees, aye',
+					['30'] = 'Right standard rudder, aye',
+					['full'] = 'Right full rudder, aye',
+					['unknown'] = 'Didn\'t catch that, say again please?'
+				}
+				return{
 				name = 'right rudder',
 				priority = 1,
 				required_crew = {'Captain'},
@@ -729,9 +752,9 @@ g_ships = {
 				task_components = {
 					make_task_component('assign_crew'),
 					make_task_component('wait','wait1',1),
-					make_task_component('create_popup','Captain','Right standard rudder, aye'),
+					make_task_component('create_popup','Captain',dialogue_params[angle] or dialogue_params['unknown']),
 					make_task_component('set_seated', 'Captain', 'Captain'),
-					make_task_component('manipulate_helm', 'Captain', {axis_da = 0.5}),
+					make_task_component('manipulate_helm', 'Captain', {axis_da = params[angle] or 0}),
 				}
 			} end,
 
@@ -889,6 +912,12 @@ function onChatMessage(peer_id, sender_name, message)
 		elseif ship_data.states.user_input_stack[task_name] then
 			ship_data.states.user_input_stack[task_name].called = true 
 		elseif command[2] == 'stop' then 
+			if command[3] == 'all' then 
+				for task_id, task_object in pairs(ship_data.tasks) do 
+					Ship:complete_task(ship_data, '', task_id)
+				end
+				return true  
+			end 
 			local task_name = table.concat(command, ' ', 3)
 			if Ship:complete_task(ship_data, task_name) then 
 				debugLog('Stopped task '..task_name..' on vehicle '..ship_id..'.')
