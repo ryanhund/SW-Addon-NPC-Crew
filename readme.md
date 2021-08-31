@@ -3,7 +3,7 @@
 ## Finish before beta-0.1
 
 ### Task logic
-- Give/take item primitive
+- [DONE 8/31] Give/take item primitive
 - [DONE 8/29] Component branching
 - [DONE 8/30] Helm interaction
 - [DONE 8/29] Manually stop ongoing task
