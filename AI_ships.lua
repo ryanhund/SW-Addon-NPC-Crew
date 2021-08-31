@@ -121,11 +121,12 @@ Ship = {
 		end
     end,
 
-    create_task = function(self, ship_data, task_name) --task_name is a string with the variable name of the task
+    create_task = function(self, ship_data, task_name, params) --task_name is a string with the variable name of the task
         --Check to make sure task doesn't already exist
 
         --Create an instance of the task object
-        local task = create_task(task_name, ship_data.states, ship_data.available_tasks)
+		--debugLog('params at ship object: '..params)
+        local task = create_task(task_name, ship_data.states, ship_data.available_tasks, (params and params or nil))
 
         --Populate the task object with crewmembers
         for _,role in pairs(task.required_crew) do 
@@ -471,13 +472,22 @@ end
 --- Generator function that creates a task component.
 --- @param component string A primitive or user-defined component method to execute
 --- @param args string The arguments to pass to the component method
+--- Include the string 'custom' as the last parameter to indicate the task component is user-defined, 
+--- rather than a provided primitive.
 function make_task_component(component, ...)
 	local args = {...} 
-	return {component = component, args = args or {}} 
+	local output = {component = component}
+	if (args[#args] == 'custom') then 
+		output.custom = true 
+		output.args = subset(args, 1, #args - 1)
+	else 
+		output.args = args or {}
+	end 
+	return output
 end
 
 function create_task(task_name, ship_states, task_list, ...)
-	local args = {...}
+	local args = ...
 	local base = {
 		name = '',
 		priority = math.huge,
@@ -685,7 +695,19 @@ g_ships = {
 				}
 			} end,
 
-			['left standard rudder'] = function() return{
+			['left'] = function(angle) 			
+				local params = {
+					['15'] = -0.17,
+					['30'] = -0.33,
+					['full'] = -0.5
+				}
+				local dialogue_params = {
+					['15'] = 'Left 15 degrees, aye',
+					['30'] = 'Left standard rudder, aye',
+					['full'] = 'Left full rudder, aye',
+					['unknown'] = 'Didn\'t catch that, say again please?'
+				}
+				return{
 				name = 'left rudder',
 				priority = 1,
 				required_crew = {'Captain'},
@@ -693,9 +715,9 @@ g_ships = {
 				task_components = {
 					make_task_component('assign_crew'),
 					make_task_component('wait','wait1',1),
-					make_task_component('create_popup','Captain','Left standard rudder, aye'),
+					make_task_component('create_popup','Captain',dialogue_params[angle] or dialogue_params['unknown']),
 					make_task_component('set_seated', 'Captain', 'Captain'),
-					make_task_component('manipulate_helm', 'Captain', {axis_da = -0.5}),
+					make_task_component('manipulate_helm', 'Captain', {axis_da = params[angle] or 0}),
 				}
 			} end,
 
@@ -788,6 +810,10 @@ function onCreate(is_world_create)
 			end 
 		end
 
+		for crew_name, crew_object in pairs(ship_object.crew) do 
+			Crew:complete_task(crew_object)
+		end 
+
 		printTable(ship_object.tasks, 'tasks after load')
 	end 
 
@@ -854,10 +880,13 @@ function onChatMessage(peer_id, sender_name, message)
 	if ship_id then 
 		local task_name = table.concat(command, ' ', 2)
 		local ship_data = g_savedata.ships[ship_id]
-		local is_task_found = find_table_index(task_name, ship_data.available_tasks) --This could change if tasks become ship-specific
-		if is_task_found then 
-			Ship:create_task(ship_data, task_name)
-		elseif ship_data.states.user_input_stack[task_name] then --Does this actually check the contents of the message?
+		local is_task_found, params = is_task_string(task_name, ship_data.available_tasks) --This could change if tasks become ship-specific
+		if is_task_found and params then
+			debugLog('params found') 
+			Ship:create_task(ship_data, is_task_found, params)
+		elseif is_task_found and not params then 
+			Ship:create_task(ship_data, is_task_found, task_name)
+		elseif ship_data.states.user_input_stack[task_name] then
 			ship_data.states.user_input_stack[task_name].called = true 
 		elseif command[2] == 'stop' then 
 			local task_name = table.concat(command, ' ', 3)
@@ -902,9 +931,18 @@ function onCustomCommand(message, user_id, admin, auth, command, one, ...)
 
     if command == "?printdata" and admin == true then
         server.announce("[Debug]", "---------------")
-        printTable(g_savedata, "missions")
+        printTable(g_savedata, "g_savedata")
         server.announce("", "---------------")
     end
+
+	if command == '?printtasks' and admin == true then 
+		server.announce("[Debug]", "---------------")
+		for ship_id, ship_object in pairs(g_savedata.ships) do
+			debugLog('Vehicle '..ship_object.name)
+			printTable(ship_object.tasks, 'tasks') 
+		end 
+        server.announce("", "---------------")
+	end 
 
     if command == "?printtables" and admin == true then
         server.announce("[Debug]", "---------------")
@@ -1425,6 +1463,32 @@ function find_task_by_name(task_name, t)
 	end
 	return _
 end
+
+function subset(input_table, j, k)
+	local output = {}
+	for i=j,k do 
+		table.insert(output,input_table[i])
+	end 
+	return output
+end 
+
+--- Takes a possible task string and determines whether it is part of a valid task,
+--- as well as whether there are custom parameters to be passed to the task
+function is_task_string(task_name, available_tasks)
+	local task_name = split(task_name)
+	for k,v in ipairs(task_name) do 
+		local candidate_string = table.concat(subset(task_name, 1, k), ' ')
+		if find_table_index(candidate_string, available_tasks) then 
+			if k == #task_name then 
+				return candidate_string, nil 
+			else 
+				return candidate_string, subset(task_name, k+1, #task_name)
+			end 
+		end 
+	end 
+
+	return false, nil 
+end 
 
 --- Check if a given key exists in an unordered table
 --- @param v The key to find
