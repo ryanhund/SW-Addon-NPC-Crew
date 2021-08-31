@@ -40,6 +40,7 @@
 
 - Optional/required crewmembers 
 - Check if any vehicle is in spawn zone before spawning, using server.isInTransformArea()
+- Character dialogue through radio feature
 
 # Feature Discussion
 
