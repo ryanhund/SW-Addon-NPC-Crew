@@ -466,7 +466,7 @@ function Task(ship_states) return {
 			to_vehicle[map_name_to_num[button_name]] = button_value
 		end 
 
-		printTable(to_vehicle, 'To vehicle')
+		--printTable(to_vehicle, 'To vehicle')
 		local vehicle_id = self.ship_states.addon_information.id
 		server.setVehicleSeat(vehicle_id, seat_name, table.unpack(to_vehicle))
 		

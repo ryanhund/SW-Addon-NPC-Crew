@@ -13,6 +13,7 @@
 - More flexible task creation: see discussion below
 - "Complete task" method for teardown tasks
 - Add flag for whether multiple instances of a task can run simultaneously, check for duplicates at creation
+- Allow users to pass parameters to tasks
 
 ### Ship Features
 
