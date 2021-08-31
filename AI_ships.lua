@@ -7,26 +7,14 @@ g_damage_tracker = {}
 
 DEFAULT_POPUP_LIFESPAN = 120
 
-function Ship(ship_data) return {
-    crew = {},
-    tasks = {}, --task priority: 0 for emergencies, 1 for urgent, 2 for normal, 3 for routine/maintenance, math.huge for idle (crewmembers only)
-    states = {
-        addon_information = {}, --includes the vehicle ID
-        sensors = {}, --external sensor input (speed, GPS, etc)
-        onboard_information = {}, --onboard states such as whether the lights are on
-		popups = {},
-		user_input_stack = {}, --a list of trigger phrases created by tasks awaiting user input
-		available_tasks = {}, --a list of all tasks associated with the ship
-	},
-	map_markers = {},
-
+Ship = {
     init = function(self, ship_data)        
         --initialize the sensor readings
         for sensor_id, sensor_name in ipairs(ship_data.sensors) do 
 			if string.find(sensor_name,'bool') then 
-				self.states.sensors[sensor_name] = {id = sensor_id, value=false, bool=true}
+				ship_data.states.sensors[sensor_name] = {id = sensor_id, value=false, bool=true}
 			else 
-            	self.states.sensors[sensor_name] = {id = sensor_id, value=0, bool=false}
+            	ship_data.states.sensors[sensor_name] = {id = sensor_id, value=0, bool=false}
 			end 
 			debugLog('Created sensor '..sensor_name..' with ID '..sensor_id)
         end 
@@ -44,11 +32,11 @@ function Ship(ship_data) return {
 
 
         --spawn all of the crewmembers associated with the ship
-        self.crew = ship_data.crew
+        --self.crew = ship_data.crew
 		
 		local parent_vehicle_id = spawned_objects[1].id
 		local objects = location.objects.crew
-        for _, crewmember in pairs(self.crew) do 
+        for _, crewmember in pairs(ship_data.crew) do 
 			--Make sure we're spawning the crewmember with the correct name 
 			for index,potential_crewmember in pairs(objects) do 
 				if potential_crewmember.display_name == crewmember.role then 
@@ -62,31 +50,31 @@ function Ship(ship_data) return {
 		--printTable(self.crew, 'Crew		')
 		--printTable(spawned_objects, 'spawned objects')
 
-        self.states.addon_information.id = parent_vehicle_id 
-		debugLog('Parent vehicle ID: '..self.states.addon_information.id)
-        self.states.addon_information.transform = spawn_transform
-        self.states.addon_information.popups = {}
-		self.states.addon_information.sim = {}
-		self.states.addon_information.name = ship_data.name
-		self.states.available_tasks = ship_data.available_tasks
+        ship_data.states.addon_information.id = parent_vehicle_id 
+		debugLog('Parent vehicle ID: '..ship_data.states.addon_information.id)
+        ship_data.states.addon_information.transform = spawn_transform
+        ship_data.states.addon_information.popups = {}
+		ship_data.states.addon_information.sim = {}
+		ship_data.states.addon_information.name = ship_data.name
+		--self.states.available_tasks = ship_data.available_tasks
 
-		if server.getVehicleSimulating(self.states.addon_information.id) then
-			self.states.addon_information.sim.state = 'loaded'
+		if server.getVehicleSimulating(ship_data.states.addon_information.id) then
+			ship_data.states.addon_information.sim.state = 'loaded'
 		else 
-			self.states.addon_information.sim.state = 'unloaded'
+			ship_data.states.addon_information.sim.state = 'unloaded'
 		end 
 
     end,
 
-    tick = function(self)
+    tick = function(self, ship_data)
 		--update the vehicle's position
-		local transform, is_success = server.getObjectPos(self.states.addon_information.id)
-		self.states.addon_information.transform = transform
+		local transform, is_success = server.getObjectPos(ship_data.states.addon_information.id)
+		ship_data.states.addon_information.transform = transform
 		if not is_success then debugLog('Failed to update position') end 
 
         --update all sensors and onboard statuses
-        for sensor_name, sensor_data in pairs(self.states.sensors) do 
-            local values, is_success = server.getVehicleDial(self.states.addon_information.id, 'sensor'..tostring(sensor_data.id))
+        for sensor_name, sensor_data in pairs(ship_data.states.sensors) do 
+            local values, is_success = server.getVehicleDial(ship_data.states.addon_information.id, 'sensor'..tostring(sensor_data.id))
 			if is_success then 
 				if sensor_data.bool then 
 					sensor_data.value = (values['value'] > 0)
@@ -99,9 +87,9 @@ function Ship(ship_data) return {
         end 
 
         --loop through ongoing tasks and update each in turn
-        for task_id, task in pairs(self.tasks) do 
+        for task_id, task in pairs(ship_data.tasks) do 
             local is_complete = false 
-            is_complete = task.task_object:update()
+            is_complete = Task:update(task.task_object) --NEEDS TO CHANGE
 
 			-- Check to make sure the crewmembers are still assigned to the task
 			-- If not, remove them from the list of assigned crew
@@ -114,16 +102,16 @@ function Ship(ship_data) return {
 			end 
 
             if is_complete then 
-                self:complete_task(task.task_name)
+                Ship:complete_task(ship_data, task.task_name)
             end 
         end
 
-		for _,crewmember in pairs(self.crew) do 
-			crewmember:tick(self.states.addon_information.id)
+		for _,crewmember in pairs(ship_data.crew) do 
+			Crew:tick(crewmember, ship_data.states.addon_information.id)
 		end 
 
 		-- Popup lifespan management
-		for _, popup in ipairs(self.states.popups) do 
+		for _, popup in ipairs(ship_data.states.popups) do 
 			popup.lifespan = popup.lifespan - 1
 
 			if popup.lifespan <= 0 and popup.active then
@@ -133,16 +121,16 @@ function Ship(ship_data) return {
 		end
     end,
 
-    create_task = function(self, task_name) --task_name is a string with the variable name of the task
+    create_task = function(self, ship_data, task_name) --task_name is a string with the variable name of the task
         --Check to make sure task doesn't already exist
 
         --Create an instance of the task object
-        local task = create_task(task_name, self.states, self.states.available_tasks)
+        local task = create_task(task_name, ship_data.states, ship_data.available_tasks)
 
         --Populate the task object with crewmembers
         for _,role in pairs(task.required_crew) do 
             local found = false 
-            for crew_name, crew_object in pairs(self.crew) do 
+            for crew_name, crew_object in pairs(ship_data.crew) do 
                 if crew_object.role == role then 
                     task.assigned_crew[role] = crew_object
 					debugLog('Assigned '..role.. ' to task '..task_name)
@@ -155,54 +143,53 @@ function Ship(ship_data) return {
 		debugLog('Created task '..task_name)
 		--printTable(task, 'Task data ')
         --Store the task in the ship's tasks table
-        table.insert(self.tasks, {task_name = task_name, task_object = task}) --'task_name' is the variable name of the task (eg, turn_on_the_lights).
+        table.insert(ship_data.tasks, {task_name = task_name, task_object = task}) --'task_name' is the variable name of the task (eg, turn_on_the_lights).
     end,
 
-	complete_task = function(self, task_name)
-		local task_id = find_task_by_name(task_name, self.tasks)
+	complete_task = function(self, ship_data, task_name)
+		local task_id = find_task_by_name(task_name, ship_data.tasks)
 		-- Sanity check for existence of task
 		if not task_id then 
 			debugLog('Could not find task '..task_name..'.')
 			return false 
 		end
 		-- Return crew states to idle 
-		for crew_name, crewmember in pairs(self.tasks[task_id].task_object.assigned_crew) do 
-			crewmember:complete_task()
+		for crew_name, crewmember in pairs(ship_data.tasks[task_id].task_object.assigned_crew) do 
+			Crew:complete_task(crewmember)
 		end
 		
-		self.tasks[task_id] = nil --remove the completed task 
+		ship_data.tasks[task_id] = nil --remove the completed task 
 		return true 
 	end,
 
-	on_vehicle_load = function(self)
-		self.states.addon_information.sim.state = 'loaded'
+	on_vehicle_load = function(self, ship_data)
+		ship_data.states.addon_information.sim.state = 'loaded'
 	end,
 
-	on_vehicle_unload = function(self)
-		self.states.addon_information.sim.state = 'unloaded'
+	on_vehicle_unload = function(self, ship_data)
+		ship_data.states.addon_information.sim.state = 'unloaded'
 	end,
 
-	rebuild_ui = function(self)
+	rebuild_ui = function(self, ship_data)
 		--if self.states.addon_information.sim.state == 'loaded' then 
-			local pos = self.states.addon_information.transform 
+			local pos = ship_data.states.addon_information.transform 
 			--printTable(pos, 'Current Location')
 			local marker_x, marker_y, marker_z = matrix.position(pos)
-			addMarker(self, createTutorialMarker(marker_x, marker_z, self.states.addon_information.name, ''))
+			addMarker(ship_data, createTutorialMarker(marker_x, marker_z, ship_data.states.addon_information.name, ''))
 
 		--end 
 	end,
 
 	--debug function to print sensor data
-	print_sensor_data = function(self)
-		for sensor_name, sensor_data in pairs(self.states.sensors) do 
+	print_sensor_data = function(self, ship_data)
+		for sensor_name, sensor_data in pairs(ship_data.states.sensors) do 
 				debugLog(sensor_name..': '..tostring(sensor_data.value))
 		end
 	end,
 
 
 
-}
-end 
+} 
 
 -- CLOCK = server.getTime()
 -- CLOCK = {
@@ -247,164 +234,148 @@ g_crew_routines = {
 }
 
 -- routine: string representing the index of a routine in g_crew_routines
-function Crew(role, routine) return { 
+function create_crew(role, routine) return { 
     role = role,
 	routine = g_crew_routines[routine],
     current_task = {t = 'routine', priority = math.huge, location = g_crew_routines[routine][1].location}, --default task is 'routine',
 	id = 0,
+}
+end
 
-    assign_to_task = function(self, task_name, task_priority)
+Crew = {
+    assign_to_task = function(self, crew_data, task_name, task_priority)
         --Check if crewmember is already performing the task
-        if task_name == self.current_task.t then return true end
+        if task_name == crew_data.current_task.t then return true end
 
         --Check for priority levels - if new task is higher priority (lower priority # than old task), the old task is overridden
-        debugLog(self.role..': Current task priority: '..self.current_task.priority..', New task priority: '..task_priority)
-		if self.current_task.priority > task_priority then 
-            self.current_task.t = task_name 
-            self.current_task.priority = task_priority
+        debugLog(crew_data.role..': Current task priority: '..crew_data.current_task.priority..', New task priority: '..task_priority)
+		if crew_data.current_task.priority > task_priority then 
+            crew_data.current_task.t = task_name 
+            crew_data.current_task.priority = task_priority
             return true 
         end 
         return false 
     end,
 
 	--- Set the crew object to return to its default routine. Reset task priority to infinity.
-    complete_task = function(self)
-        self.current_task.t = 'routine'
-        self.current_task.priority = math.huge 
+    complete_task = function(self, crew_data)
+        crew_data.current_task.t = 'routine'
+        crew_data.current_task.priority = math.huge 
         return true
     end,
 
-    tick = function(self, vehicle_id)
+    tick = function(self, crew_data, vehicle_id)
 		--Cycle crewmember through daily routine
-        if self.current_task.t == 'routine' then 
+        if crew_data.current_task.t == 'routine' then 
 			local time_pct = server.getTime().percent
-			for index,routine in pairs(self.routine) do 
+			for index,routine in pairs(crew_data.routine) do 
 				if routine.time <= time_pct then 
-					self.current_task.location = routine.location 
+					crew_data.current_task.location = routine.location 
 				elseif (routine.time >= time_pct) and index == 1 then 
 					--Correctly handle the case when the vehicle spawns before the first routine in the list
-					self.current_task.location = self.routine[#self.routine].location
+					crew_data.current_task.location = crew_data.routine[#crew_data.routine].location
 				else break 
 				end
 			end 
 
-			server.setCharacterSeated(self.id, vehicle_id, self.current_task.location)
+			server.setCharacterSeated(crew_data.id, vehicle_id, crew_data.current_task.location)
 		end
     end,
 }
-end
 
 
 
 --- Base class for tasks. Never called directly, only subclassed
-function Task(ship_states) return {
-
-	name = '',
-	priority = math.huge,
-	required_crew = {},
-	assigned_crew = {},
-	lifespan = 0,
-	ship_states = ship_states,
-	wait_points = {},
-	task_components = {},
-	current_task_component = 1,
-	conditionals = {
-		['and'] = function(a,b) return (a and b) end,
-		['or']  = function(a,b) return (a or b) end,
-		['>']   = function(a,b) return (a > b) end,
-		['<']   = function(a,b) return (a < b) end,
-		['>=']   = function(a,b) return (a >= b) end,
-		['<=']   = function(a,b) return (a <= b) end,
-		['==']   = function(a,b) return (a == b) end,
-	},
-
-	update = function(self)
-		self.lifespan = self.lifespan + 1
+Task = {
+	update = function(self, task_data)
+		task_data.lifespan = task_data.lifespan + 1
 		-- Check for task completion
-		if self.current_task_component == #self.task_components + 1 then return true end 
+		if task_data.current_task_component == #task_data.task_components + 1 then return true end 
 
 		-- Check if crew are still assigned to task
 		-- If not, throw a warning and end the task
-		if tableLength(self.required_crew) ~= tableLength(self.assigned_crew) then 
-			debugLog('One or more crewmembers no longer assigned to task '..self.name..'. Ending task...')
+		if tableLength(task_data.required_crew) ~= tableLength(task_data.assigned_crew) then 
+			debugLog('One or more crewmembers no longer assigned to task '..task_data.name..'. Ending task...')
 			return true  
 		end 
 
 		-- Task component methods return two values: 
 		-- is_complete denotes the completion of the individual component, and will return false until it is true 
 		-- task_failure is an optional return value that denotes if the entire task should fail
-		local component = self.task_components[self.current_task_component]
-		local is_complete, task_failure = self[component.component](self, table.unpack(component.args))
+		local component = task_data.task_components[task_data.current_task_component]
+		--printTable(task_data, 'task_data in update')
+		local is_complete, task_failure = Task[component.component](Task, task_data, table.unpack(component.args))
 		
 		-- If the task has failed, throw a warning and end the task
 		if task_failure then 
-			debugLog('Task failed at step '..self.current_task_component..': '..component.component)
+			debugLog('Task failed at step '..task_data.current_task_component..': '..component.component)
 			return true 
 		end 
 		
 		if is_complete then 
-			self.current_task_component = self.current_task_component + 1
+			task_data.current_task_component = task_data.current_task_component + 1
 			debugLog('Completed task component '..component.component) 
 		end 
 		return false 
 	end,
 
 	--- Teardown method
-	terminate = function(self)
+	terminate = function(self, task_data)
 
 	end,
 	
-	assign_crew = function(self)
-		for _,crewmember in pairs(self.assigned_crew) do
-			local is_success = crewmember:assign_to_task(self.name, self.priority)
+	assign_crew = function(self, task_data)
+		printTable(task_data, 'task_data in assign_crew')
+		for _,crewmember in pairs(task_data.assigned_crew) do
+			local is_success = Crew:assign_to_task(crewmember, task_data.name, task_data.priority)
 			if not is_success then return false, true end 
 		end 
 		return true
 	end,
 	
-	set_seated = function(self, char_name, seat_name)
-		local char_id = self.assigned_crew[char_name].id
-		server.setCharacterSeated(char_id, self.ship_states.addon_information.id, seat_name)
+	set_seated = function(self, task_data, char_name, seat_name)
+		local char_id = task_data.assigned_crew[char_name].id
+		server.setCharacterSeated(char_id, task_data.ship_states.addon_information.id, seat_name)
 		return true
 	end,
 	
-	wait = function(self, wait_point_name, wait_time) --in seconds
+	wait = function(self, task_data, wait_point_name, wait_time) --in seconds
 		local wait_time_ticks = math.floor(wait_time * 60)
-		if not self.wait_points[wait_point_name] then 
-			self.wait_points[wait_point_name] = self.lifespan
-		elseif self.wait_points[wait_point_name] + wait_time_ticks < self.lifespan then 
+		if not task_data.wait_points[wait_point_name] then 
+			task_data.wait_points[wait_point_name] = task_data.lifespan
+		elseif task_data.wait_points[wait_point_name] + wait_time_ticks < task_data.lifespan then 
 			return true
 		end 
 		
 		return false 
 	end,
 	
-	press_button = function(self,button_name) --in seconds
-		server.pressVehicleButton(self.ship_states.addon_information.id, button_name)
+	press_button = function(self, task_data, button_name) --in seconds
+		server.pressVehicleButton(task_data.ship_states.addon_information.id, button_name)
 		return true 
 	end,
 
 	--- Create a dialogue popup over a given character. 
 	--- popup_lifespan is optional, and is in ticks (1 seconds ~= 60 ticks). 
 	--- Default value can be set in DEFAULT_POPUP_LIFESPAN
-	create_popup = function(self, char_name, popup_text, popup_lifespan)
+	create_popup = function(self, task_data, char_name, popup_text, popup_lifespan)
 		local lifespan = popup_lifespan or DEFAULT_POPUP_LIFESPAN
-		local popup_id = #self.ship_states.popups + 1
-		local char_id = self.assigned_crew[char_name].id
-		addPopup(popup_id, char_id, self.ship_states.popups, popup_text, lifespan)
+		local popup_id = #task_data.ship_states.popups + 1
+		local char_id = task_data.assigned_crew[char_name].id
+		addPopup(popup_id, char_id, task_data.ship_states.popups, popup_text, lifespan)
 		return true 
 	end,
 
 	--- Returns true if and only if the entire function is true.
 	--- Function is evaluated left to right.
 	--- Args are alternating information to evaluate (sensors) and conditionals.
-	evaluate_conditional = function(self, ...) 
+	evaluate_conditional = function(self, task_data, ...) 
 		local terms = {...}
-		if #terms == 1 then return (self.ship_states.sensors[terms[1]].value) end 
+		if #terms == 1 then return (task_data.ship_states.sensors[terms[1]].value) end 
 		for i=1,#terms-1,2 do 
-			local a = (type(terms[i]) ~= 'string') and terms[i] or self.ship_states.sensors[terms[i]].value
-			local b = (type(terms[i+2]) ~= 'string') and terms[i+2] or self.ship_states.sensors[terms[i+2]].value
-			if not self.conditionals[terms[i+1]](a,b) then return false end
+			local a = (type(terms[i]) ~= 'string') and terms[i] or task_data.ship_states.sensors[terms[i]].value
+			local b = (type(terms[i+2]) ~= 'string') and terms[i+2] or task_data.ship_states.sensors[terms[i+2]].value
+			if not task_data.conditionals[terms[i+1]](a,b) then return false end
 		end 
 		return true
 	end,
@@ -414,26 +385,26 @@ function Task(ship_states) return {
 	--- @param condition any String or Table to pass to self:evaluate_conditional()
 	--- @param component_if_true table Task component and optional args if statement evaluates to true
 	--- @param component_if_false table Task component and optional args if statement evaluates to false
-	if_then_else = function(self, condition, component_if_true, component_if_false)
+	if_then_else = function(self, task_data, condition, component_if_true, component_if_false)
 		-- pass the conditional to evaluate_conditional, can handle multiple arguments
-		local is_success = self:evaluate_conditional(type(condition) == 'table' and table.unpack(condition) or condition)
+		local is_success = Task:evaluate_conditional(task_data, type(condition) == 'table' and table.unpack(condition) or condition)
 		local args = is_success and component_if_true or component_if_false 
 		local component = make_task_component(table.unpack(args))
 		if not component.component then return true end 
-		local is_complete, task_failure = self[component.component](self, table.unpack(component.args))
+		local is_complete, task_failure = Task[component.component](Task, task_data, table.unpack(component.args))
 		return true, task_failure
 	end,
 
 	--- Halt task execution to wait for a specific command from a player
-	await_user_input = function(self, command)
-		if not self.ship_states.user_input_stack[command] then 
+	await_user_input = function(self, task_data, command)
+		if not task_data.ship_states.user_input_stack[command] then 
 			-- Initialize await: add a new command to the stack
-			self.ship_states.user_input_stack[command] = {called = false}
+			task_data.ship_states.user_input_stack[command] = {called = false}
 			debugLog('New command added: '..command)
-			printTable(self.ship_states.user_input_stack, 'Stack')
-		elseif self.ship_states.user_input_stack[command].called then 
+			printTable(task_data.ship_states.user_input_stack, 'Stack')
+		elseif task_data.ship_states.user_input_stack[command].called then 
 			--remove the command from the stack
-			self.ship_states.user_input_stack[command] = nil
+			task_data.ship_states.user_input_stack[command] = nil
 			return true 
 		end 
 		
@@ -446,7 +417,7 @@ function Task(ship_states) return {
 	--- @param seat_name string The name of the seat as it appears on the vehicle.
 	--- @param commands table A table of buttons and values to send to the helm.
 	--- @param stop_command string Optional, if set the order will be repeatedly sent to the helm until the player types in the stop command.
-	manipulate_helm = function(self, seat_name, commands, stop_command)
+	manipulate_helm = function(self, task_data, seat_name, commands, stop_command)
 		local map_name_to_num = {
 			['axis_ws'] = 1,
 			['axis_da'] = 2,
@@ -467,18 +438,18 @@ function Task(ship_states) return {
 		end 
 
 		--printTable(to_vehicle, 'To vehicle')
-		local vehicle_id = self.ship_states.addon_information.id
+		local vehicle_id = task_data.ship_states.addon_information.id
 		server.setVehicleSeat(vehicle_id, seat_name, table.unpack(to_vehicle))
 		
 		if stop_command then 
-			local received_command = self:await_user_input(stop_command)
+			local received_command = Task:await_user_input(task_data, stop_command)
 			if not received_command then return false end 
 		end 
 		return true 
 	end,
 
 }
-end 
+
 
 function conc(t1,t2) 
 	for k,v in pairs(t2) do 
@@ -497,7 +468,26 @@ end
 
 function create_task(task_name, ship_states, task_list, ...)
 	local args = {...}
-	local base = Task(ship_states)
+	local base = {
+		name = '',
+		priority = math.huge,
+		required_crew = {},
+		assigned_crew = {},
+		lifespan = 0,
+		ship_states = ship_states,
+		wait_points = {},
+		task_components = {},
+		current_task_component = 1,
+		conditionals = {
+			['and'] = function(a,b) return (a and b) end,
+			['or']  = function(a,b) return (a or b) end,
+			['>']   = function(a,b) return (a > b) end,
+			['<']   = function(a,b) return (a < b) end,
+			['>=']   = function(a,b) return (a >= b) end,
+			['<=']   = function(a,b) return (a <= b) end,
+			['==']   = function(a,b) return (a == b) end,
+		},
+	}
 	return conc(base, task_list[task_name](table.unpack(args)))
 end 
 
@@ -508,21 +498,37 @@ end
 -------------------------------------------------------------------
 
 function create_ship(user_id, ship_name, custom_name, is_ocean_zone)
+	local ship_data = {
+		crew = {},
+    	tasks = {}, --task priority: 0 for emergencies, 1 for urgent, 2 for normal, 3 for routine/maintenance, math.huge for idle (crewmembers only)
+		states = {
+			addon_information = {}, --includes the vehicle ID
+			sensors = {}, --external sensor input (speed, GPS, etc)
+			onboard_information = {}, --onboard states such as whether the lights are on
+			popups = {},
+			user_input_stack = {}, --a list of trigger phrases created by tasks awaiting user input
+			available_tasks = {}, --a list of all tasks associated with the ship
+		},
+		map_markers = {},
+	}
+
 	if not g_ships[ship_name] then
 		debugLog('Ship not found.')
 		return false 
 	end
-	local ship_data = g_ships[ship_name]
+	local ship_data = conc(ship_data, g_ships[ship_name]())
 	ship_data.custom_name = custom_name or ship_data.name 
+	ship_data.spawn_name = ship_name
 	ship_data.spawn_transform = findSuitableZone(user_id, ship_data, is_ocean_zone)
-	table.insert(g_savedata.ships, Ship(ship_data))
+	table.insert(g_savedata.ships, ship_data)
 	local ship_id = #g_savedata.ships
-	g_savedata.ships[ship_id]:init(ship_data)
+	--g_savedata.ships[ship_id]:init(ship_data)
+	Ship:init(ship_data)
 	return ship_id 
 end 
 
 g_ships = {
-	squirrel = {
+	squirrel = function() return {
 		name = 'Squirrel',
 		sensors = {
 			'speed_kph',
@@ -539,10 +545,10 @@ g_ships = {
 		size = 'small', --small, medium, or large
 		vehicle_type = 'boat', --boat, fixed_wing, rotorcraft, ground
 		crew = {
-			captain = Crew('Captain','officer_of_the_deck'),
-			engineer= Crew('Engineer', 'engineer'),
+			captain = create_crew('Captain','officer_of_the_deck'),
+			engineer= create_crew('Engineer', 'engineer'),
 		},
-		location = function() return g_savedata.valid_ships.Squirrel end,
+		location = function() return g_savedata.valid_ships.Squirrel end, --This shouldn't be a problem, since it's only used in init
 		available_tasks =  {
 			['turn on the lights'] = function() return { --This function can support an arbitrary number of args
 				name = 'turn on the lights', -- This is the name that will be used to spawn the task
@@ -716,7 +722,7 @@ g_ships = {
 			} end,
 
 		}
-	}
+	} end,
 }
 
 
@@ -758,6 +764,16 @@ function onCreate(is_world_create)
 		end
 	end
 
+	-- Hack to maintain the available tasks constructor methods
+	for ship_id, ship_object in pairs(g_savedata.ships) do 
+		ship_object.available_tasks = {}
+		ship_object.available_tasks = g_ships[ship_object.spawn_name]().available_tasks
+		debugLog(ship_object.name..' task reinitialization complete. Sanity check: ')
+		for task_name, task_object in pairs(ship_object.available_tasks) do 
+			debugLog(task_name..' type: '..type(task_object))
+		end 
+	end 
+
 	g_zones = server.getZones('spawn_location')
 	g_zones_hospital = server.getZones("hospital")
 
@@ -773,14 +789,19 @@ function onCreate(is_world_create)
 	end 
 end
 
+--End all tasks prior to quitting save
 function onDestroy()
-
+	for ship_id, ship_object in pairs(g_savedata.ships) do
+		for task_id, task_object in pairs(ship_object.tasks) do 
+			Ship:complete_task(ship_object, task_object.task_name)
+		end 
+	end 
 end 
 
 function onPlayerJoin(steamid, name, peerid, admin, auth)
 	if g_savedata.ships ~= nil then
-		for k, mission_data in pairs(g_savedata.ships) do
-			for k, marker in pairs(mission_data.map_markers) do
+		for k, ship_data in pairs(g_savedata.ships) do
+			for k, marker in pairs(ship_data.map_markers) do
 				if marker.archetype == "default" then
 					server.addMapObject(peerid, marker.id, 0, marker.type, marker.x, marker.z, 0, 0, 0, 0, marker.display_label, marker.radius, marker.hover_label)
 				elseif marker.archetype == "line" then
@@ -792,17 +813,16 @@ function onPlayerJoin(steamid, name, peerid, admin, auth)
 end
 
 function onToggleMap(peer_id, is_open)
-	for _, mission in pairs(g_savedata.ships) do
-		removeMissionMarkers(mission)
-		mission:rebuild_ui()
+	for _, ship_data in pairs(g_savedata.ships) do
+		removeMissionMarkers(ship_data)
+		Ship:rebuild_ui(ship_data)
 	end
 end
 
 function onTick(delta_worldtime)
-	for _, ship in pairs(g_savedata.ships) do
-        ship:tick()
+	for _, ship_data in pairs(g_savedata.ships) do
+        Ship:tick(ship_data)
     end 
-
 end
 
 function onChatMessage(peer_id, sender_name, message)
@@ -810,14 +830,15 @@ function onChatMessage(peer_id, sender_name, message)
 	local ship_id = find_ship_id(command[1]) 
 	if ship_id then 
 		local task_name = table.concat(command, ' ', 2)
-		local is_task_found = find_table_index(task_name, g_savedata.ships[ship_id].states.available_tasks) --This could change if tasks become ship-specific
+		local ship_data = g_savedata.ships[ship_id]
+		local is_task_found = find_table_index(task_name, ship_data.available_tasks) --This could change if tasks become ship-specific
 		if is_task_found then 
-			g_savedata.ships[ship_id]:create_task(task_name)
-		elseif g_savedata.ships[ship_id].states.user_input_stack[task_name] then 
-			g_savedata.ships[ship_id].states.user_input_stack[task_name].called = true 
+			Ship:create_task(ship_data, task_name)
+		elseif ship_data.states.user_input_stack[task_name] then --Does this actually check the contents of the message?
+			ship_data.states.user_input_stack[task_name].called = true 
 		elseif command[2] == 'stop' then 
 			local task_name = table.concat(command, ' ', 3)
-			if g_savedata.ships[ship_id]:complete_task(task_name) then 
+			if Ship:complete_task(ship_data, task_name) then 
 				debugLog('Stopped task '..task_name..' on vehicle '..ship_id..'.')
 			else
 				debugLog('Could not end task: no task found with that name')
@@ -846,14 +867,9 @@ function onCustomCommand(message, user_id, admin, auth, command, one, ...)
 		debugLog(ship_id)
 	end 
 
-	if command == '?createtaskdebug' and admin == true then 
-		g_savedata.ships[#g_savedata.ships]:create_task('turn_on_the_lights')		
-
-	end 
-
 	if command == '?printsensordata' then 
-		for ship_id, ship in pairs(g_savedata.ships) do 
-			ship:print_sensor_data()
+		for ship_id, ship_data in pairs(g_savedata.ships) do 
+			Ship:print_sensor_data(ship_data)
 		end 
 	end 
 
@@ -986,17 +1002,17 @@ function onCustomCommand(message, user_id, admin, auth, command, one, ...)
 end
 
 function onVehicleLoad(vehicle_id)
-	for _, ship in pairs(g_savedata.ships) do
-		if ship.states.addon_information.id == vehicle_id then 
-			ship:on_vehicle_load()
+	for _, ship_data in pairs(g_savedata.ships) do
+		if ship_data.states.addon_information.id == vehicle_id then 
+			Ship:on_vehicle_load(ship_data)
 		end 
 	end
 end
 
 function onVehicleUnload(vehicle_id)
-	for _, ship in pairs(g_savedata.ships) do
-		if ship.states.addon_information.id == vehicle_id then 
-			ship:on_vehicle_unload()
+	for _, ship_data in pairs(g_savedata.ships) do
+		if ship_data.states.addon_information.id == vehicle_id then 
+			Ship:on_vehicle_unload(ship_data)
 		end 
 	end
 end 
@@ -1042,7 +1058,6 @@ function iterPlaylists()
 		end
 	end
 end
-
 
 -- iterator function for iterating over all locations in a playlist, skipping any that return nil data
 function iterLocations(playlist_index)
@@ -1366,7 +1381,7 @@ function split(inputstr, sep)
 	return t
 end
 
---Find a given ship from the list of spawned ships
+--- Find a given ship from the list of spawned ships
 function find_ship_id(ship_name)
 	local _ = false
 	
@@ -1377,6 +1392,7 @@ function find_ship_id(ship_name)
 	return _
 end
 
+--- Find a given task ID by the task's name
 function find_task_by_name(task_name, t)
 	local _ = false
 	if t then
