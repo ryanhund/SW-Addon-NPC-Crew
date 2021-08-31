@@ -461,6 +461,23 @@ Task = {
 		return true 
 	end,
 
+	give_item = function(self, task_data, char_name, item, is_remove, is_active, integer_value, float_value)
+		local function slot(id, slot) return {id = id, slot = slot} end 
+		local item_slots = {
+			fire_extinguisher = slot(10,1),
+			firefighter = slot(2,6),
+
+		}
+		local item = item_slots[item] or slot(0,0)
+
+		if is_remove then item.id = 0 end 
+
+		local char_id = task_data.assigned_crew[char_name].id
+		local is_success = server.setCharacterItem(char_id, item.slot, item.id, is_active or false, integer_value, float_value)
+
+		return is_success
+	end, 
+
 }
 
 
@@ -476,6 +493,10 @@ end
 --- @param args string The arguments to pass to the component method
 --- Include the string 'custom' as the last parameter to indicate the task component is user-defined, 
 --- rather than a provided primitive.
+
+
+
+
 function make_task_component(component, ...)
 	local args = {...} 
 	local output = {component = component}
@@ -769,6 +790,21 @@ g_ships = {
 					make_task_component('create_popup','Captain','Rudder midships, aye'),
 					make_task_component('set_seated', 'Captain', 'Captain'),
 					make_task_component('manipulate_helm', 'Captain', {axis_da = 0}),
+				}
+			} end,
+
+			['fight fire'] = function() return{
+				name = 'fight fire',
+				priority = 0,
+				required_crew = {'Engineer'},
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('give_item', 'Engineer', 'fire_extinguisher', false, true),
+					make_task_component('give_item', 'Engineer', 'firefighter'),
+					make_task_component('wait', 'wait1', 5),
+					make_task_component('give_item', 'Engineer', 'fire_extinguisher', true, true),
+					make_task_component('give_item', 'Engineer', 'firefighter', true)
 				}
 			} end,
 
