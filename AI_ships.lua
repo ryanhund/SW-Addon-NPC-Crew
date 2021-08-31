@@ -423,6 +423,7 @@ Task = {
 	--- Set one or more helm values. 
 	--- If the helm is occupied by a character, the helm will retain the values until they are overwritten. 
 	--- Warning: This method will overwrite all helm values to 0 or false unless explicitly specified otherwise.
+	--- Number inputs must be set to reset, otherwise they cannot be set to 0. 
 	--- @param seat_name string The name of the seat as it appears on the vehicle.
 	--- @param commands table A table of buttons and values to send to the helm.
 	--- @param stop_command string Optional, if set the order will be repeatedly sent to the helm until the player types in the stop command.
@@ -662,7 +663,9 @@ g_ships = {
 					make_task_component('wait','wait1',1),
 					make_task_component('create_popup','Captain','All ahead full, aye'),
 					make_task_component('set_seated', 'Captain', 'Captain'),
-					make_task_component('press_button', 'clutch_up'),
+					--make_task_component('press_button', 'clutch_up'),
+					make_task_component('manipulate_helm', 'Captain', {axis_ws = 1}),
+
 				}
 			} end,
 		
@@ -676,7 +679,9 @@ g_ships = {
 					make_task_component('wait','wait1',1),
 					make_task_component('create_popup','Captain','All stop, aye'),
 					make_task_component('set_seated', 'Captain', 'Captain'),
-					make_task_component('press_button', 'clutch_down'),
+					--make_task_component('press_button', 'clutch_down'),
+					make_task_component('manipulate_helm', 'Captain', {axis_ws = 0}),
+
 				}
 			} end,
 
