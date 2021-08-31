@@ -74,7 +74,7 @@ Ship = {
 
         --update all sensors and onboard statuses
         for sensor_name, sensor_data in pairs(ship_data.states.sensors) do 
-            local values, is_success = server.getVehicleDial(ship_data.states.addon_information.id, 'sensor'..tostring(sensor_data.id))
+            local values, is_success = server.getVehicleDial(ship_data.states.addon_information.id, 'sensor'..tostring(math.tointeger(sensor_data.id)))
 			if is_success then 
 				if sensor_data.bool then 
 					sensor_data.value = (values['value'] > 0)
@@ -89,7 +89,7 @@ Ship = {
         --loop through ongoing tasks and update each in turn
         for task_id, task in pairs(ship_data.tasks) do 
             local is_complete = false 
-            is_complete = Task:update(task.task_object) --NEEDS TO CHANGE
+            is_complete = Task:update(task.task_object)
 
 			-- Check to make sure the crewmembers are still assigned to the task
 			-- If not, remove them from the list of assigned crew
@@ -146,8 +146,8 @@ Ship = {
         table.insert(ship_data.tasks, {task_name = task_name, task_object = task}) --'task_name' is the variable name of the task (eg, turn_on_the_lights).
     end,
 
-	complete_task = function(self, ship_data, task_name)
-		local task_id = find_task_by_name(task_name, ship_data.tasks)
+	complete_task = function(self, ship_data, task_name, task_id)
+		local task_id = task_id or find_task_by_name(task_name, ship_data.tasks)
 		-- Sanity check for existence of task
 		if not task_id then 
 			debugLog('Could not find task '..task_name..'.')
@@ -370,12 +370,21 @@ Task = {
 	--- Function is evaluated left to right.
 	--- Args are alternating information to evaluate (sensors) and conditionals.
 	evaluate_conditional = function(self, task_data, ...) 
+		local conditionals = {
+			['and'] = function(a,b) return (a and b) end,
+			['or']  = function(a,b) return (a or b) end,
+			['>']   = function(a,b) return (a > b) end,
+			['<']   = function(a,b) return (a < b) end,
+			['>=']   = function(a,b) return (a >= b) end,
+			['<=']   = function(a,b) return (a <= b) end,
+			['==']   = function(a,b) return (a == b) end,
+		}
 		local terms = {...}
 		if #terms == 1 then return (task_data.ship_states.sensors[terms[1]].value) end 
 		for i=1,#terms-1,2 do 
 			local a = (type(terms[i]) ~= 'string') and terms[i] or task_data.ship_states.sensors[terms[i]].value
 			local b = (type(terms[i+2]) ~= 'string') and terms[i+2] or task_data.ship_states.sensors[terms[i+2]].value
-			if not task_data.conditionals[terms[i+1]](a,b) then return false end
+			if not conditionals[terms[i+1]](a,b) then return false end
 		end 
 		return true
 	end,
@@ -478,15 +487,7 @@ function create_task(task_name, ship_states, task_list, ...)
 		wait_points = {},
 		task_components = {},
 		current_task_component = 1,
-		conditionals = {
-			['and'] = function(a,b) return (a and b) end,
-			['or']  = function(a,b) return (a or b) end,
-			['>']   = function(a,b) return (a > b) end,
-			['<']   = function(a,b) return (a < b) end,
-			['>=']   = function(a,b) return (a >= b) end,
-			['<=']   = function(a,b) return (a <= b) end,
-			['==']   = function(a,b) return (a == b) end,
-		},
+		
 	}
 	return conc(base, task_list[task_name](table.unpack(args)))
 end 
@@ -764,7 +765,7 @@ function onCreate(is_world_create)
 		end
 	end
 
-	-- Hack to maintain the available tasks constructor methods
+	-- Hack to maintain the available tasks constructor methods (and the conditional methods lol nothing is real)
 	for ship_id, ship_object in pairs(g_savedata.ships) do 
 		ship_object.available_tasks = {}
 		ship_object.available_tasks = g_ships[ship_object.spawn_name]().available_tasks
@@ -772,6 +773,17 @@ function onCreate(is_world_create)
 		for task_name, task_object in pairs(ship_object.available_tasks) do 
 			debugLog(task_name..' type: '..type(task_object))
 		end 
+
+		for task_id, task_object in pairs(ship_object.tasks) do 
+			debugLog('Dumping task '..task_object.task_name..' on ship '..ship_object.name)
+			if Ship:complete_task(ship_object, task_object.task_name, task_id) then 
+				debugLog('Success!')
+			else 
+				debugLog('Failed to stop task.')
+			end 
+		end
+
+		printTable(ship_object.tasks, 'tasks after load')
 	end 
 
 	g_zones = server.getZones('spawn_location')
@@ -791,9 +803,15 @@ end
 
 --End all tasks prior to quitting save
 function onDestroy()
+	--Why doesn't this work??
 	for ship_id, ship_object in pairs(g_savedata.ships) do
 		for task_id, task_object in pairs(ship_object.tasks) do 
-			Ship:complete_task(ship_object, task_object.task_name)
+			debugLog('Dumping task '..task_object.task_name..' on ship '..ship_object.name)
+			if Ship:complete_task(ship_object, task_object.task_name, task_id) then 
+				debugLog('Success!')
+			else 
+				debugLog('Failed to stop task.')
+			end 
 		end 
 	end 
 end 
