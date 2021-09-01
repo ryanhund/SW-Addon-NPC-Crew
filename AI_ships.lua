@@ -154,9 +154,32 @@ Ship = {
 			debugLog('Could not find task '..task_name..'.')
 			return false 
 		end
-		-- Return crew states to idle 
+		-- Return crew states to idle, or return them to their previous task
 		for crew_name, crewmember in pairs(ship_data.tasks[task_id].task_object.assigned_crew) do 
-			Crew:complete_task(crewmember)
+			local task_len = #ship_data.tasks
+			local found 
+			debugLog('Determining whether to idle or reassign '..crewmember.role)
+			for i = task_len, 1, -1 do --iterate backwards - prioritize recency
+				if i ~= task_id then --don't reassign to the same task (duh)
+					local task = ship_data.tasks[i]
+					if task.task_object.override_behavior == 'cancel' then break end 
+					for _, role in pairs(task.task_object.required_crew) do 
+						if crewmember.role == role then 
+							task.task_object.assigned_crew[role] = crewmember 
+							Crew:assign_to_task(crewmember, task.task_object.name, task.task_object.priority, true)
+							Task:return_to_task(task.task_object, crewmember)
+							debugLog('Reassigned '..role.. ' to task '..task.task_name)
+							found = true 
+						end 
+					end 
+					if found then break end 
+				end 
+			end 
+
+			if not found then 
+				debugLog('Idling character '..crewmember.role)
+				Crew:complete_task(crewmember)
+			end 
 		end
 		
 		ship_data.tasks[task_id] = nil --remove the completed task 
@@ -244,13 +267,13 @@ function create_crew(role, routine) return {
 end
 
 Crew = {
-    assign_to_task = function(self, crew_data, task_name, task_priority)
+    assign_to_task = function(self, crew_data, task_name, task_priority, is_force)
         --Check if crewmember is already performing the task
         if task_name == crew_data.current_task.t then return true end
 
         --Check for priority levels - if new task is higher priority (lower priority # than old task), the old task is overridden
         debugLog(crew_data.role..': Current task priority: '..crew_data.current_task.priority..', New task priority: '..task_priority)
-		if crew_data.current_task.priority > task_priority then 
+		if (crew_data.current_task.priority > task_priority) or is_force then 
             crew_data.current_task.t = task_name 
             crew_data.current_task.priority = task_priority
             return true 
@@ -296,8 +319,9 @@ Task = {
 		-- Check if crew are still assigned to task
 		-- If not, throw a warning and end the task
 		if tableLength(task_data.required_crew) ~= tableLength(task_data.assigned_crew) then 
-			debugLog('One or more crewmembers no longer assigned to task '..task_data.name..'. Ending task...')
-			return true  
+			local is_cancel = task_data.override_behavior == 'cancel'
+			if is_cancel then debugLog('One or more crewmembers no longer assigned to task '..task_data.name..'. Ending task...') end 
+			return is_cancel
 		end 
 
 		-- Task component methods return two values: 
@@ -320,13 +344,26 @@ Task = {
 		return false 
 	end,
 
+	return_to_task = function(self, task_data, crew_data) --What to do if returning to an overridden task
+		for i = task_data.current_task_component, 1, -1 do 
+			local component = task_data.task_components[i]
+			if component.component == 'set_seated' then
+				if component.args[1] == crew_data.role then 
+					debugLog('Re-seating crewmember '..crew_data.role..' in seat '..component.args[2])
+					Task[component.component](Task, task_data, table.unpack(component.args))
+					break
+				end 
+			end 
+		end 
+	end, 
+
 	--- Teardown method
 	terminate = function(self, task_data)
 
 	end,
 	
 	assign_crew = function(self, task_data)
-		printTable(task_data, 'task_data in assign_crew')
+		--printTable(task_data, 'task_data in assign_crew')
 		for _,crewmember in pairs(task_data.assigned_crew) do
 			local is_success = Crew:assign_to_task(crewmember, task_data.name, task_data.priority)
 			if not is_success then return false, true end 
@@ -521,6 +558,7 @@ function create_task(task_name, ship_states, task_list, ...)
 		wait_points = {},
 		task_components = {},
 		current_task_component = 1,
+		override_behavior = 'cancel', --'cancel' or 'wait'
 		
 	}
 	return conc(base, task_list[task_name](table.unpack(args)))
@@ -663,6 +701,7 @@ g_ships = {
 				name = 'undefined naptime',
 				priority = 2,
 				required_crew = {'Captain'},
+				override_behavior = 'wait',
 		
 				task_components = {
 					make_task_component('assign_crew'),
