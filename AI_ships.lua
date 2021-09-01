@@ -582,6 +582,7 @@ function create_ship(user_id, ship_name, custom_name, is_ocean_zone)
 			user_input_stack = {}, --a list of trigger phrases created by tasks awaiting user input
 			available_tasks = {}, --a list of all tasks associated with the ship
 			helms = {}, --A dynamically-generated table of all controllable seats or helms and their values
+			signs = {}, --A table, generated at vehicle creation, of all named signs and their voxel positions
 		},
 		map_markers = {},
 	}
@@ -1700,7 +1701,7 @@ end
 
 function test_tasks()
 	local tests = {
-		{name = 'Has name?', arg = 'name', test = function(name) if name then return true else return false end end},
+		{name = 'Does the task have a name?', arg = 'name', test = function(name) if name then return true else return false end end},
 		{name = 'Valid priority?', arg = 'priority', test = function(priority) if priority >= 0 and priority <= 3 then return true else return false end end},
 		{name = 'Is crew value a table?', arg = 'required_crew', test = function(required_crew) if type(required_crew) == 'table' then return true else return false end end},
 		{name = 'Are the task components of valid type?', arg = 'task_components', test = function(components) for k,v in ipairs(components) do 
