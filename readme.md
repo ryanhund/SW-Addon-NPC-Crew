@@ -23,11 +23,15 @@
 
 - [DONE 8/30] Spawn zones
 - [DONE 8/30] Tasks attached to ships rather than global
-- All data about a particular vehicle stored in one table
+- [DONE 8/30] (except for routines) All data about a particular vehicle stored in one table
 
 ### The Big Kahuna
 
 - [DONE 8/31] Refactor ship, crew, and task objects to separate data from methods
+
+### Bugfixes
+
+- Ghost vessel spawning after save/load
 
 ## Finish before v1.0
 

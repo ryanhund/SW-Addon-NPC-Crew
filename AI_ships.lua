@@ -734,6 +734,8 @@ g_ships = {
 					['full'] = 1,
 				}
 
+				local order = order or 'slow'
+
 				return{
 				name = 'throttle ahead',
 				priority = 1,
@@ -1704,9 +1706,10 @@ function test_tasks()
 		{name = 'Are the task components of valid type?', arg = 'task_components', test = function(components) for k,v in ipairs(components) do 
 																					if type(v) == 'table' and v.component then return true else return false end end end},
 		{name = 'Is the task name a restricted word?', arg = 'name', test = function(name) return (name == 'stop') and false or true end},
-		
+		{name = 'Valid override behavior parameter?', arg = 'override_behavior', test = function(arg) return (arg == 'wait') or (arg == nil) end},
 	}
 	for ship_name, ship_data in pairs(g_ships) do 
+		local ship_data = ship_data()
 		debugLog('Testing tasks for ship: '..ship_data.name)
 		local tasks = ship_data.available_tasks
 		for task_name, task_subclass in pairs(tasks) do 
