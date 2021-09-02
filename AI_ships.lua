@@ -7,6 +7,9 @@ g_damage_tracker = {}
 
 DEFAULT_POPUP_LIFESPAN = 120
 
+g_time_pct = 0
+
+
 Ship = {
     init = function(self, ship_data)        
         --initialize the sensor readings
@@ -255,13 +258,50 @@ g_crew_routines = {
 		routine('20:05', 'idle2'),
 		routine('23:00', 'bed2'),
 	},
+
+	xo = {
+		routine('06:30', 'officeridle1'),
+		routine('07:30', 'mess1'),
+		routine('07:45', 'Officer of the Deck'),
+		routine('20:30', 'mess1'),
+		routine('20:57', 'officeridle1'),
+		routine('22:00', 'officerbed1'),
+	},
+	chief_engineer = {
+		routine('06:45', 'mess1'),
+		routine('07:20', 'Engine Workshop'),
+		routine('20:00', 'mess1'),
+		routine('20:25', 'officeridle1'),
+		routine('20:55', 'officerbed2'),
+	},
+	helmsman = {
+		routine('07:47', 'mess1'),
+		routine('08:01', 'Helmsman'),
+		routine('20:00', 'crewidle3'),
+		routine('21:00', 'mess1'),
+		routine('22:00', 'crewbed1'),
+	},
+	relief_helmsman = {
+		routine('08:00', 'mess2'),
+		routine('09:30', 'crewidle1'),
+		routine('10:00', 'crewbed1'),
+		routine('19:35', 'mess2'),
+		routine('20:00', 'Helmsman'),
+	},
+	deckhand = {
+		routine('07:30', 'mess3'),
+		routine('11:00', 'crewidle1'),
+		routine('14:00', 'mess3'),
+		routine('22:00', 'crewbed2'),
+	},
+
 }
 
--- routine: string representing the index of a routine in g_crew_routines
+--- @param routine string index of a routine in g_crew_routines
 function create_crew(role, routine) return { 
     role = role,
 	routine = g_crew_routines[routine],
-    current_task = {t = 'routine', priority = math.huge, location = g_crew_routines[routine][1].location}, --default task is 'routine',
+    current_task = {t = 'routine', priority = math.huge, location = ''}, --default task is 'routine',
 	id = 0,
 }
 end
@@ -291,11 +331,11 @@ Crew = {
     tick = function(self, crew_data, vehicle_id)
 		--Cycle crewmember through daily routine
         if crew_data.current_task.t == 'routine' then 
-			local time_pct = server.getTime().percent
+			
 			for index,routine in pairs(crew_data.routine) do 
-				if routine.time <= time_pct then 
+				if routine.time <= g_time_pct then 
 					crew_data.current_task.location = routine.location 
-				elseif (routine.time >= time_pct) and index == 1 then 
+				elseif (routine.time >= g_time_pct) and index == 1 then 
 					--Correctly handle the case when the vehicle spawns before the first routine in the list
 					crew_data.current_task.location = crew_data.routine[#crew_data.routine].location
 				else break 
@@ -852,6 +892,26 @@ g_ships = {
 
 		}
 	} end,
+
+	vanguard = function() return {
+		name = 'Vanguard',
+		sensors = {
+
+		},
+		size = 'large',
+		vehicle_type = 'boat',
+		crew = {
+			xo = create_crew('Executive Officer', 'xo'),
+			chief_engineer = create_crew('Chief Engineer', 'chief_engineer'),
+			helmsman = create_crew('Helmsman', 'helmsman'),
+			relief_helmsman = create_crew('Relief Helmsman', 'relief_helmsman'),
+			deckhand = create_crew('Deckhand', 'deckhand'),
+		},
+		location = function() return g_savedata.valid_ships.Vanguard end,
+		available_tasks = {
+
+		}
+	} end,
 }
 
 
@@ -877,14 +937,14 @@ function onCreate(is_world_create)
 
 	for i in iterPlaylists() do
 		for j in iterLocations(i) do
-			debugLog('	searching location...')
+			--debugLog('	searching location...')
 			local parameters, mission_objects = loadLocation(i, j)
 			local location_data = server.getLocationData(i, j)
 
             local is_ship = (parameters.type == 'Ship')
             if is_ship then 
                 if mission_objects.main_vehicle_component ~= nil and #mission_objects.crew > 0 then
-                    debugLog("  found valid ship")
+                    debugLog("Found valid ship")
 					local ship_name = parameters.title
 					g_savedata.valid_ships[ship_name] = { playlist_index = i, location_index = j, data = location_data, objects = mission_objects, parameters = parameters }
                 end
@@ -970,6 +1030,8 @@ function onToggleMap(peer_id, is_open)
 end
 
 function onTick(delta_worldtime)
+	g_time_pct = server.getTime().percent
+
 	for _, ship_data in pairs(g_savedata.ships) do
         Ship:tick(ship_data)
     end 
@@ -1051,6 +1113,16 @@ function onCustomCommand(message, user_id, admin, auth, command, one, ...)
         server.announce("", "---------------")
 	end 
 
+	if command == '?printcrew' and admin == true then 
+		server.announce("[Debug]", "---------------")
+		for ship_id, ship_object in pairs(g_savedata.ships) do
+			debugLog('Vehicle '..ship_object.name)
+			printTable(ship_object.crew, 'Crew')
+		end 
+        server.announce("", "---------------")
+
+	end 
+
     if command == "?printtables" and admin == true then
         server.announce("[Debug]", "---------------")
         printTable(g_objective_types, "objective types")
@@ -1087,7 +1159,7 @@ function onCustomCommand(message, user_id, admin, auth, command, one, ...)
 	if command == "?printships" and admin == true then
 		for ship_name, ship_data in pairs(g_savedata.valid_ships) do 
 			debugLog('	'..ship_name)
-			printTable(ship_data, 'Ship ')
+			if one == 'all' then printTable(ship_data, 'Ship ') end 
 		end
 		local len = tableLength(g_savedata.valid_ships)
 		debugLog('	Total: '..tostring(len))
@@ -1295,34 +1367,39 @@ function loadLocation(playlist_index, location_index)
 
 	for _, object_data in iterObjects(playlist_index, location_index) do
 		-- investigate tags
-		debugLog('	Investigating tags')
+		--debugLog('	Investigating tags')
 		local is_tag_object = false
 		for tag_index, tag_object in pairs(object_data.tags) do
 			if tag_object == "type=npc_ship" then
 				debugLog('	Found NPC ship')
 				is_tag_object = true
 				parameters.type = "Ship"
+			-- elseif tag_object == 'type=npc' then
+				-- is_tag_object = true 
+				-- parameters.type = 'character'
 			end
 
 		end
 
 		if is_tag_object then
 			for tag_index, tag_object in pairs(object_data.tags) do
-				if string.find(tag_object, "title=") ~= nil then
+				if string.find(tag_object, "title=") ~= nil and object_data.type == "vehicle"  then
 					parameters.title = string.sub(tag_object, 7)
 				elseif string.find(tag_object, "rank=") ~= nil then
 					parameters.rank = tag_object
 				end
 			end
-		end
+		
 
-		if object_data.type == "vehicle" then
-			debugLog('	Adding ship '..parameters.title..' to return package')
-			table.insert(mission_objects.vehicles, object_data)
-			mission_objects.main_vehicle_component = object_data
-		elseif object_data.type == "character" then
-			table.insert(mission_objects.crew, object_data)
-		end
+			if object_data.type == "vehicle" then
+				debugLog('	Adding ship '..parameters.title..' to return package')
+				table.insert(mission_objects.vehicles, object_data)
+				mission_objects.main_vehicle_component = object_data
+			elseif object_data.type == "character" then
+				debugLog('Adding crewmember to return package')
+				table.insert(mission_objects.crew, object_data)
+			end 
+		end 	
 	end
 
 	return parameters, mission_objects

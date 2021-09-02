@@ -18,12 +18,15 @@
 ### Ship Features
 
 - Distinguish between loaded and unloaded in ship and task logic
+- Implement vehicle movement while unloaded
 
 ### Ship creation interface
 
 - [DONE 8/30] Spawn zones
 - [DONE 8/30] Tasks attached to ships rather than global
 - [DONE 8/30] (except for routines) All data about a particular vehicle stored in one table
+- Allow more than one ship of each type to spawn (custom names?)
+
 
 ### The Big Kahuna
 
@@ -35,8 +38,6 @@
 
 ## Finish before v1.0
 
-- Implement vehicle movement while unloaded
-- Allow more than one ship of each type to spawn (custom names?)
 - Consider moving object spawn logic outside of Ship.init()
 - Implement unit tests for all user-defined data
 
