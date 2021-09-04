@@ -67,9 +67,13 @@ Ship = {
 			ship_data.states.addon_information.sim.state = 'unloaded'
 		end 
 
+		ship_data.states.spawn_timer = 0 
+
     end,
 
     tick = function(self, ship_data)
+		ship_data.states.spawn_timer = ship_data.states.spawn_timer + 1
+
 		--update the vehicle's position
 		local transform, is_success = server.getObjectPos(ship_data.states.addon_information.id)
 		ship_data.states.addon_information.transform = transform
@@ -110,6 +114,10 @@ Ship = {
         end
 
 		for _,crewmember in pairs(ship_data.crew) do 
+			-- Forced wait time before engaging spawn logic 
+			if ship_data.states.spawn_timer == 60 * 5 then 
+				crewmember.current_task.t = 'spawn'
+			end 
 			Crew:tick(crewmember, ship_data.states.addon_information.id)
 		end 
 
@@ -182,6 +190,7 @@ Ship = {
 			if not found then 
 				debugLog('Idling character '..crewmember.role)
 				Crew:complete_task(crewmember)
+				--Crew:tick(crewmember, ship_data.states.addon_information.id)
 			end 
 		end
 		
@@ -301,7 +310,7 @@ g_crew_routines = {
 function create_crew(role, routine) return { 
     role = role,
 	routine = g_crew_routines[routine],
-    current_task = {t = 'routine', priority = math.huge, location = ''}, --default task is 'routine',
+    current_task = {t = '', priority = math.huge, location = ''}, --default task is 'routine',
 	id = 0,
 }
 end
@@ -316,6 +325,7 @@ Crew = {
 		if (crew_data.current_task.priority > task_priority) or is_force then 
             crew_data.current_task.t = task_name 
             crew_data.current_task.priority = task_priority
+			crew_data.current_task.location = task_name
             return true 
         end 
         return false 
@@ -329,22 +339,44 @@ Crew = {
     end,
 
     tick = function(self, crew_data, vehicle_id)
-		--Cycle crewmember through daily routine
-        if crew_data.current_task.t == 'routine' then 
-			
+		if crew_data.current_task.t == 'spawn' then 
+			local candidate_location
 			for index,routine in pairs(crew_data.routine) do 
 				if routine.time <= g_time_pct then 
-					crew_data.current_task.location = routine.location 
+					candidate_location = routine.location 
 				elseif (routine.time >= g_time_pct) and index == 1 then 
 					--Correctly handle the case when the vehicle spawns before the first routine in the list
-					crew_data.current_task.location = crew_data.routine[#crew_data.routine].location
-				else break 
+					candidate_location = crew_data.routine[#crew_data.routine].location
 				end
 			end 
 
-			server.setCharacterSeated(crew_data.id, vehicle_id, crew_data.current_task.location)
+			debugLog('On spawn, changing location to '..candidate_location)
+			server.setCharacterSeated(crew_data.id, vehicle_id, candidate_location)
+			crew_data.current_task.t = 'routine'
+
+		--Cycle crewmember through daily routine
+		elseif crew_data.current_task.t == 'routine' then 
+			local candidate_location
+			for index,routine in pairs(crew_data.routine) do 
+				if routine.time <= g_time_pct then 
+					candidate_location = routine.location 
+				elseif (routine.time >= g_time_pct) and index == 1 then 
+					--Correctly handle the case when the vehicle spawns before the first routine in the list
+					candidate_location = crew_data.routine[#crew_data.routine].location
+				--else break 
+				end
+			end 
+			if candidate_location ~= crew_data.current_task.location then 
+				crew_data.current_task.location = candidate_location
+				debugLog('changing location to '..candidate_location)
+				server.setCharacterSeated(crew_data.id, vehicle_id, crew_data.current_task.location)
+			end 
 		end
     end,
+
+	iter_routine = function(self, crew_data)
+
+	end, 
 }
 
 
