@@ -295,7 +295,7 @@ g_crew_routines = {
 		routine('09:30', 'crewidle1'),
 		routine('10:00', 'crewbed1'),
 		routine('19:35', 'mess2'),
-		routine('20:00', 'Helmsman'),
+		routine('20:01', 'Helmsman'),
 	},
 	deckhand = {
 		routine('07:30', 'mess3'),
@@ -941,7 +941,22 @@ g_ships = {
 		},
 		location = function() return g_savedata.valid_ships.Vanguard end,
 		available_tasks = {
+			['enhanced navigation watch'] = function() return{
+				name = 'enhanced navigation watch',
+				priority = 1,
+				required_crew = {'Executive Officer', 'Helmsman', 'Relief Helmsman', 'Deckhand'},
+				override_behavior = 'wait',
 
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('set_seated', 'Executive Officer', 'Officer of the Deck'),
+					make_task_component('set_seated', 'Helmsman', 'Helmsman'),
+					make_task_component('set_seated', 'Relief Helmsman', 'Lee Helm'),
+					make_task_component('set_seated', 'Deckhand', 'Radar'),
+					make_task_component('await_user_input', 'return to normal watch'),
+
+				}
+			} end,
 		}
 	} end,
 }

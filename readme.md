@@ -43,6 +43,7 @@
 
 ## Finish before v2.0
 
+- Enhanced character realism with ability to change look direction
 - Optional/required crewmembers 
 - Check if any vehicle is in spawn zone before spawning, using server.isInTransformArea()
 - Character dialogue through radio feature
