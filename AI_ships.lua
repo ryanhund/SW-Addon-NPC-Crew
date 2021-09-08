@@ -58,6 +58,8 @@ Ship = {
         ship_data.states.addon_information.transform = spawn_transform
         ship_data.states.addon_information.popups = {}
 		ship_data.states.addon_information.sim = {}
+		ship_data.states.addon_information.sim.is_pathing = false
+		ship_data.states.addon_information.sim.path = {}
 		ship_data.states.addon_information.name = ship_data.name
 		--self.states.available_tasks = ship_data.available_tasks
 
@@ -131,6 +133,71 @@ Ship = {
 			end
 		end
     end,
+
+	path = function(self, ship_data, char_id)
+		local vehicle_path = ship_data.states.addon_information.sim.path
+		local vehicle_id = ship_data.states.addon_information.id
+		local vehicle_state = ship_data.states.addon_information.sim.state
+
+		if vehicle_state == 'loaded' then 
+
+			if #vehicle_path > 0 then 
+
+				local vehicle_pos = server.getVehiclePos(vehicle_id)
+				local distance = calculate_distance_to_next_waypoint(vehicle_path[1], vehicle_pos)
+				server.setAITarget(char_id, (matrix.translation(vehicle_path[1].x, 0, vehicle_path[1].z))) --Change this for compatibility with airplanes
+				server.setAIState(char_id, 1)
+
+				if distance < 100 then 
+					table.remove(vehicle_path, 1)
+				end 
+			
+			else 
+				server.setAIState(char_id, 0)
+				ship_data.states.addon_information.sim.is_pathing = false 
+			end 
+		
+		elseif vehicle_state == 'unloaded' then 
+
+			if #vehicle_path > 0 then
+				local vehicle_transform = server.getVehiclePos(vehicle_object.id)
+				local vehicle_x, vehicle_y, vehicle_z = matrix.position(vehicle_transform)
+
+				local speed = ship_data.speed 
+				
+				local movement_x = vehicle_path[1].x - vehicle_x
+				local movement_z = vehicle_path[1].z - vehicle_z
+
+				local length_xz = math.sqrt((movement_x * movement_x) + (movement_z * movement_z))
+
+				movement_x = movement_x * speed / length_xz
+				movement_z = movement_z * speed / length_xz
+
+				local rotation_matrix = matrix.rotationToFaceXZ(movement_x, movement_z)
+
+				local new_pos = matrix.multiply(matrix.translation(vehicle_x + movement_x, vehicle_y, vehicle_z + movement_z), rotation_matrix)
+                local new_pos_npc = matrix.translation(vehicle_x + movement_x, vehicle_y + 20, vehicle_z + movement_z)
+                server.setVehiclePos(vehicle_object.id, new_pos)
+
+				for _, crewmember in pairs(ship_data.crew) do
+					server.setObjectPos(crewmember.id, new_pos_npc)
+				end
+
+				local distance = calculate_distance_to_next_waypoint(vehicle_path[1], vehicle_transform)
+				if distance < 100 then
+					table.remove(vehicle_path, 1)
+				end
+			
+			else 
+				server.setAIState(char_id, 0)
+				ship_data.states.addon_information.sim.is_pathing = false 
+			end
+
+		end 
+
+				
+
+	end, 
 
     create_task = function(self, ship_data, task_name, params) --task_name is a string with the variable name of the task
         --Check to make sure task doesn't already exist
@@ -665,6 +732,7 @@ function create_ship(user_id, ship_name, custom_name, is_ocean_zone)
 			signs = {}, --A table, generated at vehicle creation, of all named signs and their voxel positions
 		},
 		map_markers = {},
+		speed = 60,
 	}
 
 	if not g_ships[ship_name] then
@@ -699,6 +767,7 @@ g_ships = {
 		},
 		size = 'small', --small, medium, or large
 		vehicle_type = 'boat', --boat, fixed_wing, rotorcraft, ground
+		speed = 25,
 		crew = {
 			captain = create_crew('Captain','officer_of_the_deck'),
 			engineer= create_crew('Engineer', 'engineer'),
@@ -940,6 +1009,7 @@ g_ships = {
 		},
 		size = 'large',
 		vehicle_type = 'boat',
+		speed = 70,
 		crew = {
 			xo = create_crew('Executive Officer', 'xo'),
 			chief_engineer = create_crew('Chief Engineer', 'chief_engineer'),
@@ -1873,6 +1943,16 @@ function find_functions(table)
 
 	return output_table
 end 
+
+function calculate_distance_to_next_waypoint(path_pos, vehicle_pos)
+    local vehicle_x, vehicle_y, vehicle_z = matrix.position(vehicle_pos)
+
+    local vector_x = path_pos.x - vehicle_x
+    local vector_z = path_pos.z - vehicle_z
+
+    return math.sqrt( (vector_x * vector_x) + (vector_z * vector_z))
+end
+
 -------------------------------------------------------------------
 --
 --	 UI
