@@ -322,7 +322,9 @@ Crew = {
 
         --Check for priority levels - if new task is higher priority (lower priority # than old task), the old task is overridden
         debugLog(crew_data.role..': Current task priority: '..crew_data.current_task.priority..', New task priority: '..task_priority)
-		if (crew_data.current_task.priority > task_priority) or is_force then 
+		if (crew_data.current_task.priority >= task_priority) 
+			or is_force 
+		then 
             crew_data.current_task.t = task_name 
             crew_data.current_task.priority = task_priority
 			crew_data.current_task.location = task_name
@@ -586,6 +588,12 @@ Task = {
 
 		return is_success
 	end, 
+
+	set_keypad = function(self, task_data, keypad_name, keypad_value)
+		local vehicle_id = task_data.ship_states.addon_information.id
+		server.setVehicleKeypad(vehicle_id, keypad_name, keypad_value)
+		return true 
+	end,
 
 }
 
@@ -957,6 +965,99 @@ g_ships = {
 
 				}
 			} end,
+
+			['ahead'] = function(...)
+				local order = table.concat({...}, ' ')
+				
+				local orders = {
+					['dead slow'] = 6,
+					['slow'] = 5,
+					['half'] = 4,
+					['tow mode'] = 3,
+					['full'] = 2,
+					['flank'] = 1,
+				}
+
+				local order = orders[order] and order or 'slow'
+
+				return{
+				name = 'throttle ahead',
+				priority = 1,
+				required_crew = {'Executive Officer', 'Helmsman'},
+		
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('wait','wait1',0.5),
+					make_task_component('create_popup','Executive Officer','All ahead '..order),
+					make_task_component('wait','wait2',1),
+					make_task_component('create_popup','Helmsman','All ahead '..order..', aye'),
+					make_task_component('set_seated', 'Helmsman', 'Helmsman'),
+					make_task_component('set_keypad', 'NPC Engine Telegraph Order', orders[order]),
+					make_task_component('press_button', 'Telegraph NPC Control'),
+				}
+			} end,
+
+			['all stop'] = function() return{
+				name = 'all stop',
+				priority = 1,
+				required_crew = {'Executive Officer', 'Helmsman'},
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('wait','wait1',0.5),
+					make_task_component('create_popup','Executive Officer','All stop'),
+					make_task_component('wait','wait2',1),
+					make_task_component('create_popup','Helmsman','All stop, aye'),
+					make_task_component('set_seated', 'Helmsman', 'Helmsman'),
+					make_task_component('set_keypad', 'NPC Engine Telegraph Order', 7),
+					make_task_component('press_button', 'Telegraph NPC Control'),
+				}
+			} end,
+
+			['astern'] = function(...) 
+				local order = table.concat({...}, ' ')
+				
+				local orders = {
+					['dead slow'] = 8,
+					['slow'] = 9,
+				}
+
+				local order = orders[order] and order or 'slow'
+				
+				return{
+				name = 'throttle astern',
+				priority = 1,
+				required_crew = {'Executive Officer', 'Helmsman'},
+		
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('wait','wait1',0.5),
+					make_task_component('create_popup','Executive Officer', order..' astern'),
+					make_task_component('wait','wait2',1),
+					make_task_component('create_popup','Helmsman', order..' astern, aye'),
+					make_task_component('set_seated', 'Helmsman', 'Helmsman'),
+					make_task_component('set_keypad', 'NPC Engine Telegraph Order', orders[order]),
+					make_task_component('press_button', 'Telegraph NPC Control'),
+				}
+			} end,
+
+			['deploy RHIB'] = function() return{
+				name = 'Deploy the RHIB',
+				priority = 2,
+				required_crew = {'Deckhand'},
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('wait','wait1', 2.5),
+					make_task_component('set_seated', 'Deckhand', 'Davit Controls'),
+					make_task_component('create_popup','Deckhand','Ready to deploy RHIB'),
+					make_task_component('wait','wait2', 1),
+					make_task_component('create_popup','Helmsman','All stop, aye'),
+					make_task_component('set_seated', 'Helmsman', 'Helmsman'),
+					make_task_component('set_keypad', 'NPC Engine Telegraph Order', 7),
+					make_task_component('press_button', 'Telegraph NPC Control'),
+				}
+			} end,
 		}
 	} end,
 }
@@ -992,7 +1093,7 @@ function onCreate(is_world_create)
             if is_ship then 
                 if mission_objects.main_vehicle_component ~= nil and #mission_objects.crew > 0 then
                     debugLog("Found valid ship")
-					local ship_name = parameters.title
+					local ship_name = parameters.ship_name
 					g_savedata.valid_ships[ship_name] = { playlist_index = i, location_index = j, data = location_data, objects = mission_objects, parameters = parameters }
                 end
             end
@@ -1408,8 +1509,7 @@ function loadLocation(playlist_index, location_index)
 
 	local parameters = {
 		type = "",
-		title = "",
-		rank = "", --officer or enlisted
+		ship_name = "",
 	}
 
 	for _, object_data in iterObjects(playlist_index, location_index) do
@@ -1421,8 +1521,8 @@ function loadLocation(playlist_index, location_index)
 				debugLog('	Found NPC ship')
 				is_tag_object = true
 				parameters.type = "Ship"
-			-- elseif tag_object == 'type=npc' then
-				-- is_tag_object = true 
+			elseif tag_object == 'type=npc' then
+				is_tag_object = true 
 				-- parameters.type = 'character'
 			end
 
@@ -1430,16 +1530,13 @@ function loadLocation(playlist_index, location_index)
 
 		if is_tag_object then
 			for tag_index, tag_object in pairs(object_data.tags) do
-				if string.find(tag_object, "title=") ~= nil and object_data.type == "vehicle"  then
-					parameters.title = string.sub(tag_object, 7)
-				elseif string.find(tag_object, "rank=") ~= nil then
-					parameters.rank = tag_object
-				end
+				if string.find(tag_object, "ship_name=") ~= nil then
+					parameters.ship_name = string.sub(tag_object, 11)
+				end 
 			end
-		
 
 			if object_data.type == "vehicle" then
-				debugLog('	Adding ship '..parameters.title..' to return package')
+				debugLog('	Adding ship '..parameters.ship_name..' to return package')
 				table.insert(mission_objects.vehicles, object_data)
 				mission_objects.main_vehicle_component = object_data
 			elseif object_data.type == "character" then

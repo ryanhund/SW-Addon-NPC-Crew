@@ -10,6 +10,7 @@
 - [DONE 8/31] Stop all ongoing tasks
 - [DONE 8/28] Wait for user input
 - [DONE 9/01] Task overrides
+- [DONE 9/08] Set keypad primitive
 - More flexible task creation: see discussion below
 - "Complete task" method for teardown tasks
 - Add flag for whether multiple instances of a task can run simultaneously, check for duplicates at creation
