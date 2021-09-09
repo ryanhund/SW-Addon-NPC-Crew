@@ -352,7 +352,7 @@ g_crew_routines = {
 	},
 	helmsman = {
 		routine('07:47', 'mess1'),
-		routine('08:01', 'Helmsman'),
+		routine('08:05', 'Helmsman'),
 		routine('20:00', 'crewidle3'),
 		routine('21:00', 'mess1'),
 		routine('22:00', 'crewbed1'),
@@ -362,7 +362,7 @@ g_crew_routines = {
 		routine('09:30', 'crewidle1'),
 		routine('10:00', 'crewbed1'),
 		routine('19:35', 'mess2'),
-		routine('20:01', 'Helmsman'),
+		routine('20:05', 'Helmsman'),
 	},
 	deckhand = {
 		routine('07:30', 'mess3'),
@@ -1245,6 +1245,85 @@ g_ships = {
 
 
 				}
+			} end,
+
+			['left'] = function(order) 
+				local orders = {
+					['standard'] = 0.5,
+					['full'] = 0.9,
+					['emergency'] = 1,
+				}
+				local output, to_rudder
+				
+				if tonumber(order) then 
+					to_rudder = (tonumber(order) / 100) * 2
+					output = tostring(order)..' degrees'
+				else 
+					to_rudder = orders[order] or orders.standard 
+					output = order..' rudder'
+				end 
+				
+				return{
+				name = 'Turn the rudder to the left',
+				priority = 1,
+				required_crew = {'Helmsman', 'Executive Officer'},
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('wait','wait1',0.5),
+					make_task_component('create_popup', 'Executive Officer', 'Left '..output),
+					make_task_component('wait','wait2',1),
+					make_task_component('create_popup', 'Helmsman', 'Left '..output..', aye'),
+					make_task_component('manipulate_helm', 'Helmsman', {axis_da = -to_rudder}),
+
+				},
+			} end,
+
+			['right'] = function(order) 
+				local orders = {
+					['standard'] = 0.5,
+					['full'] = 0.9,
+					['emergency'] = 1,
+				}
+				local output, to_rudder
+				
+				if tonumber(order) then 
+					to_rudder = (tonumber(order) / 100) * 2
+					output = tostring(order)..' degrees'
+				else 
+					to_rudder = orders[order] or orders.standard 
+					output = order..' rudder'
+				end 
+				
+				return{
+				name = 'Turn the rudder to the right',
+				priority = 1,
+				required_crew = {'Helmsman', 'Executive Officer'},
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('wait','wait1',0.5),
+					make_task_component('create_popup', 'Executive Officer', 'Right '..output),
+					make_task_component('wait','wait2',1),
+					make_task_component('create_popup', 'Helmsman', 'Right '..output..', aye'),
+					make_task_component('manipulate_helm', 'Helmsman', {axis_da = to_rudder}),
+
+				},
+			} end,
+
+			['rudder midships'] = function() return{
+				name = 'Return the rudder to midships',
+				priority = 1,
+				required_crew = {'Helmsman', 'Executive Officer'},
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('wait','wait1',0.5),
+					make_task_component('create_popup', 'Executive Officer', 'Rudder midships'),
+					make_task_component('wait', 'wait2', 1),
+					make_task_component('create_popup', 'Helmsman', 'Rudder midships, aye'),
+					make_task_component('manipulate_helm', 'Helmsman', {axis_da = 0}),
+				},
 			} end,
 		}
 	} end,
