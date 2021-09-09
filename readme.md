@@ -1,6 +1,10 @@
 # Foucault's NPC Crew
 
+## Description
 
+This addon allows Stormworks players to give their vessels NPC crewmembers that follow orders, perform shipboard tasks, and can navigate the vessel while it is despawned. 
+
+This addon is still WIP. As of yet there is no public release.
 
 # To-do:
 

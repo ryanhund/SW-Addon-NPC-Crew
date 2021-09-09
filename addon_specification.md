@@ -1,5 +1,7 @@
 ## AI SHIPS
 
+[note: this is the original specification document for the addon, provided for historical purposes. These features may or may not be present in the current or final versions.]
+
 General info and capabilities:
 - AI crew capable of navigating, starting up, manipulating deck functions
 - AI crew should have names, work locations, dialogue
@@ -23,9 +25,3 @@ Structural outline:
     - Crewmembers will have dialogue associated with their current actions
 
 - Ships can spawn either on the nearest ocean tile or at a dock (denoted by a spawn zone)
-
-Known limitations:
-- All crew must be unique. Only a particular crewmember can perform a particular task, there is no way to have (say) two basic sailors who are totally interchangeable
-
-TODO:
-- Write own spawn function based on spawnAddonComponent - spawnObject and spawnObjects are unnecessary
