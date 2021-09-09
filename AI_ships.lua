@@ -23,7 +23,7 @@ g_output_log = {}
 g_objective_update_counter = 0
 g_damage_tracker = {}
 
-DEFAULT_POPUP_LIFESPAN = 120
+DEFAULT_POPUP_LIFESPAN = 2
 
 g_time_pct = 0
 
@@ -555,10 +555,10 @@ Task = {
 	end,
 
 	--- Create a dialogue popup over a given character. 
-	--- popup_lifespan is optional, and is in ticks (1 seconds ~= 60 ticks). 
+	--- popup_lifespan is optional.
 	--- Default value can be set in DEFAULT_POPUP_LIFESPAN
 	create_popup = function(self, task_data, char_name, popup_text, popup_lifespan)
-		local lifespan = popup_lifespan or DEFAULT_POPUP_LIFESPAN
+		local lifespan = (popup_lifespan or DEFAULT_POPUP_LIFESPAN) * 60
 		local popup_id = #task_data.ship_states.popups + 1
 		local char_id = task_data.assigned_crew[char_name].id
 		addPopup(popup_id, char_id, task_data.ship_states.popups, popup_text, lifespan)
@@ -674,14 +674,39 @@ Task = {
 		return false, true
 	end,
 
-	give_item = function(self, task_data, char_name, item, is_remove, is_active, integer_value, float_value)
-		local function slot(id, slot) return {id = id, slot = slot} end 
+	give_item = function(self, task_data, char_name, item, is_remove, is_active, integer_value, float_value, custom_slot)
+		local function slot(id, slot) return {id = id, slot = custom_slot or (slot or 1)} end 
 		local item_slots = {
-			fire_extinguisher = slot(10,1),
+			none = slot(0,0),
+			diving = slot(1,6),
 			firefighter = slot(2,6),
-
+			scuba = slot(3, 6),
+			parachute = slot(4, 6),
+			arctic = slot(5, 6),
+			binoculars = slot(6),
+			cable = slot(7),
+			compass = slot(8),
+			defibrillator = slot(9),
+			fire_extinguisher = slot(10,1),
+			first_aid = slot(11),
+			flare = slot(12),
+			flaregun = slot(13),
+			flaregun_ammo = slot(14),
+			flashlight = slot(15),
+			hose = slot(16),
+			night_vision_binoculars = slot(17),
+			oxygen_mask = slot(18),
+			radio = slot(19),
+			radio_signal_locator = slot(20),
+			remote_control = slot(21),
+			rope = slot(22),
+			strobe_light = slot(23),
+			strobe_light_infrared = slot(24),
+			transponder = slot(25),
+			underwater_welding_torch = slot(26),
+			welding_torch = slot(27),
 		}
-		local item = item_slots[item] or slot(0,0)
+		local item = item_slots[item] or slot(0,1)
 
 		if is_remove then item.id = 0 end 
 
@@ -820,7 +845,7 @@ g_ships = {
 				task_components = {
 					make_task_component('assign_crew'),
 					make_task_component('set_seated', 'Engineer', 'Electrical Control'),
-					make_task_component('create_popup', 'Engineer', 'Waiting for main power', 60),
+					make_task_component('create_popup', 'Engineer', 'Waiting for main power', 1),
 					make_task_component('evaluate_conditional', 'bool_main_power'),
 					make_task_component('create_popup', 'Engineer', 'Turning on the lights'),
 					make_task_component('wait', 'pre_switch_wait', 1.5),
