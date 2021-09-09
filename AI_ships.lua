@@ -260,6 +260,7 @@ Ship = {
 			for i = task_len, 1, -1 do --iterate backwards - prioritize recency
 				if i ~= task_id then --don't reassign to the same task (duh)
 					local task = ship_data.tasks[i]
+					if not task then break end --Check if the task still exists
 					if task.task_object.override_behavior == 'cancel' then break end 
 					for _, role in pairs(task.task_object.required_crew) do 
 						if crewmember.role == role then 
@@ -722,6 +723,12 @@ Task = {
 		return true 
 	end,
 
+	spawn_task = function(self, task_data, task_command)
+		local ship_name = task_data.ship_states.addon_information.name
+		local message = ship_name..' '..task_command
+		spawnTask(message)
+		return true 
+	end, 
 }
 
 
@@ -769,6 +776,39 @@ function create_task(task_name, ship_states, task_list, ...)
 		
 	}
 	return conc(base, task_list[task_name](table.unpack(args)))
+end 
+
+function spawnTask(command)
+	local command = split(command)
+	local ship_id = find_ship_id(command[1]) 
+	if ship_id then 
+		local task_name = table.concat(command, ' ', 2)
+		local ship_data = g_savedata.ships[ship_id]
+		local is_task_found, params = is_task_string(task_name, ship_data.available_tasks) --This could change if tasks become ship-specific
+		if is_task_found and params then
+			debugLog('params found') 
+			Ship:create_task(ship_data, is_task_found, params)
+		elseif is_task_found and not params then 
+			Ship:create_task(ship_data, is_task_found, task_name)
+		elseif ship_data.states.user_input_stack[task_name] then
+			ship_data.states.user_input_stack[task_name].called = true 
+		elseif command[2] == 'stop' then 
+			if command[3] == 'all' then 
+				for task_id, task_object in pairs(ship_data.tasks) do 
+					Ship:complete_task(ship_data, '', task_id)
+				end
+				return true  
+			end 
+			local task_name = table.concat(command, ' ', 3)
+			if Ship:complete_task(ship_data, task_name) then 
+				debugLog('Stopped task '..task_name..' on vehicle '..ship_id..'.')
+			else
+				debugLog('Could not end task: no task found with that name')
+			end  
+		else
+			debugLog('No task found with that name')
+		end 
+	end 
 end 
 
 -------------------------------------------------------------------
@@ -838,9 +878,6 @@ g_ships = {
 				name = 'turn on the lights', -- This is the name that will be used to spawn the task
 				priority = 3,
 				required_crew = {'Engineer'}, --Has to be a table even if there's only one
-				can_override = {
-		
-				},
 		
 				task_components = {
 					make_task_component('assign_crew'),
@@ -1503,36 +1540,7 @@ function onTick(delta_worldtime)
 end
 
 function onChatMessage(peer_id, sender_name, message)
-	local command = split(message)
-	local ship_id = find_ship_id(command[1]) 
-	if ship_id then 
-		local task_name = table.concat(command, ' ', 2)
-		local ship_data = g_savedata.ships[ship_id]
-		local is_task_found, params = is_task_string(task_name, ship_data.available_tasks) --This could change if tasks become ship-specific
-		if is_task_found and params then
-			debugLog('params found') 
-			Ship:create_task(ship_data, is_task_found, params)
-		elseif is_task_found and not params then 
-			Ship:create_task(ship_data, is_task_found, task_name)
-		elseif ship_data.states.user_input_stack[task_name] then
-			ship_data.states.user_input_stack[task_name].called = true 
-		elseif command[2] == 'stop' then 
-			if command[3] == 'all' then 
-				for task_id, task_object in pairs(ship_data.tasks) do 
-					Ship:complete_task(ship_data, '', task_id)
-				end
-				return true  
-			end 
-			local task_name = table.concat(command, ' ', 3)
-			if Ship:complete_task(ship_data, task_name) then 
-				debugLog('Stopped task '..task_name..' on vehicle '..ship_id..'.')
-			else
-				debugLog('Could not end task: no task found with that name')
-			end  
-		else
-			debugLog('No task found with that name')
-		end 
-	end 
+	spawnTask(message)
 end
 
 function onCustomCommand(message, user_id, admin, auth, command, one, ...)
