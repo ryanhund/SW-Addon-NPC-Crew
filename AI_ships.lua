@@ -1,3 +1,21 @@
+--[[
+Foucault's NPC Crewmembers Addon
+Copyright (C) 2021 Ryan Hund
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+]]
+
 g_savedata = {}
 g_zones = {}
 g_zones_hospital = {}
@@ -9,6 +27,8 @@ DEFAULT_POPUP_LIFESPAN = 120
 
 g_time_pct = 0
 
+NAME = 'Foucault\'s NPC Crewmembers'
+VERSION = '0.0.1'
 
 Ship = {
     init = function(self, ship_data)        
@@ -1406,6 +1426,11 @@ function onCreate(is_world_create)
 			end 
 		end 
 	end 
+
+	debugLog(NAME..' Copyright (C) 2021 Ryan Hund')
+    debugLog('This program comes with ABSOLUTELY NO WARRANTY.')
+    debugLog('This is free software, and you are welcome to redistribute it under certain conditions.')
+	debugLog('See the GNU General Public License for more details.')
 end
 
 --End all tasks prior to quitting save
