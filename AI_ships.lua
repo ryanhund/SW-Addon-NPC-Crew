@@ -561,8 +561,19 @@ Task = {
 		local terms = {...}
 		if #terms == 1 then return (task_data.ship_states.sensors[terms[1]].value) end 
 		for i=1,#terms-1,2 do 
-			local a = (type(terms[i]) ~= 'string') and terms[i] or task_data.ship_states.sensors[terms[i]].value
-			local b = (type(terms[i+2]) ~= 'string') and terms[i+2] or task_data.ship_states.sensors[terms[i+2]].value
+			local a, b
+			if (type(terms[i]) ~= 'string') then 
+				a = terms[i]
+			else 
+				a = task_data.ship_states.sensors[terms[i]].value
+			end 
+
+			if (type(terms[i+2]) ~= 'string') then 
+				b = terms[i+2]
+			else 
+				b = task_data.ship_states.sensors[terms[i+2]].value
+			end 
+
 			if not conditionals[terms[i+1]](a,b) then return false end
 		end 
 		return true
@@ -577,6 +588,7 @@ Task = {
 		-- pass the conditional to evaluate_conditional, can handle multiple arguments
 		local is_success = Task:evaluate_conditional(task_data, type(condition) == 'table' and table.unpack(condition) or condition)
 		local args = is_success and component_if_true or component_if_false 
+		if not args then return true end 
 		local component = make_task_component(table.unpack(args))
 		if not component.component then return true end 
 		local is_complete, task_failure = Task[component.component](Task, task_data, table.unpack(component.args))
@@ -601,7 +613,6 @@ Task = {
 
 	--- Set one or more helm values. 
 	--- If the helm is occupied by a character, the helm will retain the values until they are overwritten. 
-	--- Warning: This method will overwrite all helm values to 0 or false unless explicitly specified otherwise.
 	--- Number inputs must be set to reset, otherwise they cannot be set to 0. 
 	--- @param seat_name string The name of the seat as it appears on the vehicle.
 	--- @param commands table A table of buttons and values to send to the helm.
@@ -637,6 +648,10 @@ Task = {
 			if not received_command then return false end 
 		end 
 		return true 
+	end,
+
+	force_end_task = function(self,task_data)
+		return false, true
 	end,
 
 	give_item = function(self, task_data, char_name, item, is_remove, is_active, integer_value, float_value)
@@ -1005,7 +1020,9 @@ g_ships = {
 	vanguard = function() return {
 		name = 'Vanguard',
 		sensors = {
-
+			'bool_crane_lowered',
+			'bool_RHIB_connected',
+			'bool_helicopter_connected',
 		},
 		size = 'large',
 		vehicle_type = 'boat',
@@ -1111,8 +1128,33 @@ g_ships = {
 				}
 			} end,
 
-			['deploy RHIB'] = function() return{
+			['prepare to deploy RHIB'] = function() return{
 				name = 'Deploy the RHIB',
+				priority = 2,
+				required_crew = {'Deckhand'},
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('if_then_else', {'bool_crane_lowered'}, {'force_end_task'}, nil),
+					make_task_component('wait','wait1', 1),
+					make_task_component('set_seated', 'Deckhand', 'Davit Controls'),
+					make_task_component('wait','wait11', 0.5),
+					make_task_component('create_popup','Deckhand','Ready to deploy RHIB on your command'),
+					make_task_component('await_user_input', 'deploy RHIB'),
+					make_task_component('wait','wait2', 2),
+					make_task_component('create_popup','Deckhand','Copy, deploying the RHIB'),
+					make_task_component('press_button', 'Deploy Crane'),
+					make_task_component('evaluate_conditional', 'bool_RHIB_connected', '==', false),
+					make_task_component('wait','wait3', 10),
+					make_task_component('create_popup','Deckhand','Raising RHIB Crane'),
+					make_task_component('press_button', 'Deploy Crane'),
+					make_task_component('wait','wait4', 5),
+
+				}
+			} end,
+
+			['prepare to retrieve RHIB'] = function() return{
+				name = 'Retrieve the RHIB',
 				priority = 2,
 				required_crew = {'Deckhand'},
 
@@ -1120,12 +1162,88 @@ g_ships = {
 					make_task_component('assign_crew'),
 					make_task_component('wait','wait1', 2.5),
 					make_task_component('set_seated', 'Deckhand', 'Davit Controls'),
-					make_task_component('create_popup','Deckhand','Ready to deploy RHIB'),
-					make_task_component('wait','wait2', 1),
-					make_task_component('create_popup','Helmsman','All stop, aye'),
-					make_task_component('set_seated', 'Helmsman', 'Helmsman'),
-					make_task_component('set_keypad', 'NPC Engine Telegraph Order', 7),
-					make_task_component('press_button', 'Telegraph NPC Control'),
+					make_task_component('create_popup','Deckhand','Ready to retrieve RHIB on your command'),
+					make_task_component('if_then_else', {'bool_crane_lowered'}, nil, {'press_button', 'Deploy Crane'}),
+					make_task_component('await_user_input', 'retrieve RHIB'),
+					make_task_component('wait','wait2', 2),
+					make_task_component('create_popup','Deckhand','Copy, retrieving the RHIB'),
+					make_task_component('evaluate_conditional', 'bool_RHIB_connected'),
+					make_task_component('wait','wait3', 0.5),
+					make_task_component('create_popup','Deckhand','Raising RHIB Crane'),
+					make_task_component('press_button', 'Deploy Crane'),
+					make_task_component('wait','wait4', 10),
+
+				}
+			} end,
+
+			['prepare for takeoff'] = function() return{
+				name = 'Prepare the flight deck for takeoff',
+				priority = 2,
+				required_crew = {'Deckhand', 'Executive Officer'},
+				override_behavior = 'wait',
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('wait','wait1', 2.5),
+					make_task_component('set_seated', 'Executive Officer', 'Officer of the Deck'),
+					make_task_component('set_seated', 'Deckhand', 'Flight Deck Controls'),
+					make_task_component('create_popup','Executive Officer','All hands, prepare to conduct flight operations'),
+					make_task_component('create_popup','Deckhand','Preparing to conduct flight operations'),
+					make_task_component('wait','wait2', 2.1),
+					make_task_component('create_popup','Deckhand','Clear the flight deck'),
+					make_task_component('wait','wait3', 2.1),
+					make_task_component('create_popup','Deckhand','Preparing flight deck for takeoff'),
+					make_task_component('manipulate_helm', 'Flight Deck Controls', {button_1 = true, button_3 = true, button_5 = true}),
+					make_task_component('if_then_else', {'bool_crane_lowered'}, nil, {'press_button', 'Deploy Crane'}),
+					make_task_component('wait','wait4', 5),
+					make_task_component('create_popup','Deckhand','Ready for takeoff'),
+					make_task_component('evaluate_conditional', 'bool_helicopter_connected', '==', false),
+					make_task_component('wait','wait5', 5),
+					make_task_component('create_popup','Deckhand','Helicopter is clear of the flight deck'),
+					make_task_component('wait','wait6', 10),
+					make_task_component('create_popup','Deckhand','Returning flight deck to normal conditions'),
+					make_task_component('manipulate_helm', 'Flight Deck Controls', {button_1 = false, button_3 = false, button_5 = false}),
+					make_task_component('if_then_else', {'bool_crane_lowered'}, {'press_button', 'Deploy Crane'}, nil ),
+					make_task_component('create_popup','Executive Officer','Flight operations complete'),
+
+				}
+			} end,
+
+			['prepare for landing'] = function() return{
+				name = 'Prepare the flight deck for landing',
+				priority = 2,
+				required_crew = {'Deckhand', 'Executive Officer'},
+				override_behavior = 'wait',
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('wait','wait1', 2.5),
+					make_task_component('set_seated', 'Executive Officer', 'Officer of the Deck'),
+					make_task_component('set_seated', 'Deckhand', 'Flight Deck Controls'),
+					make_task_component('create_popup','Executive Officer','All hands, prepare to conduct flight operations'),
+					make_task_component('create_popup','Deckhand','Preparing to conduct flight operations'),
+					make_task_component('wait','wait2', 2.1),
+					make_task_component('create_popup','Deckhand','Clear the flight deck'),
+					make_task_component('wait','wait3', 2.1),
+					make_task_component('create_popup','Deckhand','Preparing flight deck for landing'),
+					make_task_component('manipulate_helm', 'Flight Deck Controls', {button_1 = true, button_5 = true}),
+					make_task_component('if_then_else', {'bool_crane_lowered'}, nil, {'press_button', 'Deploy Crane'}),
+					make_task_component('wait','wait4', 5),
+					make_task_component('create_popup','Deckhand','Ready to receive incoming aircraft'),
+					make_task_component('evaluate_conditional', 'bool_helicopter_connected'),
+					make_task_component('create_popup','Deckhand','Touchdown'),
+					make_task_component('create_popup','Executive Officer','Flight deck reports helicopter touchdown'),
+					make_task_component('wait','wait5', 5),
+					make_task_component('manipulate_helm', 'Flight Deck Controls', {button_3 = true, button_4 = true}),
+					make_task_component('create_popup','Deckhand','Awaiting full engine shutdown'),
+					make_task_component('await_user_input', 'flight operations complete'),
+					make_task_component('create_popup','Deckhand','Returning flight deck to normal conditions'),
+					make_task_component('manipulate_helm', 'Flight Deck Controls', {button_1 = true, button_3 = true, button_4 = true, button_5 = true}),
+					make_task_component('if_then_else', {'bool_crane_lowered'}, {'press_button', 'Deploy Crane'}, nil ),
+					make_task_component('create_popup','Executive Officer','Flight operations complete'),
+					make_task_component('wait','wait6', 10),
+
+
 				}
 			} end,
 		}

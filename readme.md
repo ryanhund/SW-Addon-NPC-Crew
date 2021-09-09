@@ -36,9 +36,12 @@
 ### Bugfixes
 
 - Ghost vessel spawning after save/load
+- Investigate create_task method call inside onChatMessage (not passing task_name?)
 
 ## Finish before v1.0
 
+- Help popups for tasks (prompt for next instruction) and basic program navigation
+- Change important notifications from chat messages to popups
 - Consider moving object spawn logic outside of Ship.init()
 - Implement unit tests for all user-defined data
 
