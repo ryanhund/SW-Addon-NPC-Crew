@@ -1160,6 +1160,7 @@ g_ships = {
 					make_task_component('create_popup','Executive Officer','All ahead '..order),
 					make_task_component('wait','wait2',1),
 					make_task_component('create_popup','Helmsman','All ahead '..order..', aye'),
+					make_task_component('spawn_task', 'set light Run on'),
 					make_task_component('set_seated', 'Helmsman', 'Helmsman'),
 					make_task_component('set_keypad', 'NPC Engine Telegraph Order', orders[order]),
 					make_task_component('press_button', 'Telegraph NPC Control'),
@@ -1177,6 +1178,7 @@ g_ships = {
 					make_task_component('create_popup','Executive Officer','All stop'),
 					make_task_component('wait','wait2',1),
 					make_task_component('create_popup','Helmsman','All stop, aye'),
+					make_task_component('spawn_task', 'set light Run off'),
 					make_task_component('set_seated', 'Helmsman', 'Helmsman'),
 					make_task_component('set_keypad', 'NPC Engine Telegraph Order', 7),
 					make_task_component('press_button', 'Telegraph NPC Control'),
@@ -1204,6 +1206,7 @@ g_ships = {
 					make_task_component('create_popup','Executive Officer', order..' astern'),
 					make_task_component('wait','wait2',1),
 					make_task_component('create_popup','Helmsman', order..' astern, aye'),
+					make_task_component('spawn_task', 'set light Run on'),
 					make_task_component('set_seated', 'Helmsman', 'Helmsman'),
 					make_task_component('set_keypad', 'NPC Engine Telegraph Order', orders[order]),
 					make_task_component('press_button', 'Telegraph NPC Control'),
@@ -1220,6 +1223,7 @@ g_ships = {
 					make_task_component('if_then_else', {'bool_crane_lowered'}, {'force_end_task'}, nil),
 					make_task_component('wait','wait1', 1),
 					make_task_component('set_seated', 'Deckhand', 'Davit Controls'),
+					make_task_component('spawn_task', 'set light RAM on'),
 					make_task_component('wait','wait11', 0.5),
 					make_task_component('create_popup','Deckhand','Ready to deploy RHIB on your command'),
 					make_task_component('await_user_input', 'deploy RHIB'),
@@ -1231,6 +1235,7 @@ g_ships = {
 					make_task_component('create_popup','Deckhand','Raising RHIB Crane'),
 					make_task_component('press_button', 'Deploy Crane'),
 					make_task_component('wait','wait4', 5),
+					make_task_component('spawn_task', 'set light RAM off'),
 
 				}
 			} end,
@@ -1244,6 +1249,7 @@ g_ships = {
 					make_task_component('assign_crew'),
 					make_task_component('wait','wait1', 2.5),
 					make_task_component('set_seated', 'Deckhand', 'Davit Controls'),
+					make_task_component('spawn_task', 'set light RAM on'),
 					make_task_component('create_popup','Deckhand','Ready to retrieve RHIB on your command'),
 					make_task_component('if_then_else', {'bool_crane_lowered'}, nil, {'press_button', 'Deploy Crane'}),
 					make_task_component('await_user_input', 'retrieve RHIB'),
@@ -1254,6 +1260,7 @@ g_ships = {
 					make_task_component('create_popup','Deckhand','Raising RHIB Crane'),
 					make_task_component('press_button', 'Deploy Crane'),
 					make_task_component('wait','wait4', 10),
+					make_task_component('spawn_task', 'set light RAM off'),
 
 				}
 			} end,
@@ -1267,6 +1274,7 @@ g_ships = {
 				task_components = {
 					make_task_component('assign_crew'),
 					make_task_component('wait','wait1', 2.5),
+					make_task_component('spawn_task', 'set light RAM on'),
 					make_task_component('set_seated', 'Executive Officer', 'Officer of the Deck'),
 					make_task_component('set_seated', 'Deckhand', 'Flight Deck Controls'),
 					make_task_component('create_popup','Executive Officer','All hands, prepare to conduct flight operations'),
@@ -1286,6 +1294,7 @@ g_ships = {
 					make_task_component('create_popup','Deckhand','Returning flight deck to normal conditions'),
 					make_task_component('manipulate_helm', 'Flight Deck Controls', {button_1 = false, button_3 = false, button_5 = false}),
 					make_task_component('if_then_else', {'bool_crane_lowered'}, {'press_button', 'Deploy Crane'}, nil ),
+					make_task_component('spawn_task', 'set light RAM off'),
 					make_task_component('create_popup','Executive Officer','Flight operations complete'),
 
 				}
@@ -1305,6 +1314,7 @@ g_ships = {
 					make_task_component('create_popup','Executive Officer','All hands, prepare to conduct flight operations'),
 					make_task_component('create_popup','Deckhand','Preparing to conduct flight operations'),
 					make_task_component('wait','wait2', 2.1),
+					make_task_component('spawn_task', 'set light RAM on'),
 					make_task_component('create_popup','Deckhand','Clear the flight deck'),
 					make_task_component('wait','wait3', 2.1),
 					make_task_component('create_popup','Deckhand','Preparing flight deck for landing'),
@@ -1324,6 +1334,7 @@ g_ships = {
 					make_task_component('if_then_else', {'bool_crane_lowered'}, {'press_button', 'Deploy Crane'}, nil ),
 					make_task_component('create_popup','Executive Officer','Flight operations complete'),
 					make_task_component('wait','wait6', 10),
+					make_task_component('spawn_task', 'set light RAM off'),
 
 
 				}
@@ -1406,6 +1417,31 @@ g_ships = {
 					make_task_component('create_popup', 'Helmsman', 'Rudder midships, aye'),
 					make_task_component('manipulate_helm', 'Helmsman', {axis_da = 0}),
 				},
+			} end,
+
+			['set light'] = function(light_name, status) 
+				local lights = {
+					['Run'] = 1,
+					['NUC'] = 2,
+					['Anchor'] = 3,
+					['Tow_S'] = 4,
+					['Tow_L'] = 5,
+					['RAM'] = 6,
+				}
+
+				if status == 'on' then status = 1 else status = 0 end 
+				local light_id = lights[light_name] or 0
+
+				local output = (light_id * 10) + (status)
+			return{
+				name = 'Set a light on or off',
+				priority = 1,
+				required_crew = {},
+
+				task_components = {
+					make_task_component('set_keypad', 'Navigation Lights Orders', output)
+				}
+
 			} end,
 		}
 	} end,
