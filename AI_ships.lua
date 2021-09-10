@@ -1804,7 +1804,7 @@ function despawnShip(ship_name)
 	local ship = g_savedata.ships[ship_id]
 	removeMissionMarkers(ship)
 	g_savedata.ships[ship_id] = nil
-	printTable(ship.spawned_objects, 'spawned_objects')
+	--printTable(ship.spawned_objects, 'spawned_objects')
 	despawnObjects(ship.spawned_objects, true)
 
 	debugLog('Despawned '..ship_name..'.')
