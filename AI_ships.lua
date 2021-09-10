@@ -73,6 +73,7 @@ Ship = {
 		--printTable(self.crew, 'Crew		')
 		--printTable(spawned_objects, 'spawned objects')
 
+		ship_data.spawned_objects = spawned_objects
         ship_data.states.addon_information.id = parent_vehicle_id 
 		debugLog('Parent vehicle ID: '..ship_data.states.addon_information.id)
         ship_data.states.addon_information.transform = spawn_transform
@@ -1589,6 +1590,13 @@ function onCustomCommand(message, user_id, admin, auth, command, one, ...)
 		despawnAllShips()
     end
 
+	if command == '?despawn' and auth == true then 
+		local is_success = despawnShip(one)
+		if not is_success then 
+			debugLog('No vehicle found with that name.')
+		end 
+	end 
+
 	if command == "?spawnship" and auth == true then 
 		local params = {...}
 		--WIP
@@ -1788,6 +1796,19 @@ function despawnAllShips()
 	g_savedata.spawned_objects = {}
 	g_savedata.ships = {}
 	debugLog('Despawned '..ship_count..' ships.')
+end 
+
+function despawnShip(ship_name)
+	local ship_id = find_ship_id(ship_name)
+	if not ship_id then return false end 
+	local ship = g_savedata.ships[ship_id]
+	removeMissionMarkers(ship)
+	g_savedata.ships[ship_id] = nil
+	printTable(ship.spawned_objects, 'spawned_objects')
+	despawnObjects(ship.spawned_objects, true)
+
+	debugLog('Despawned '..ship_name..'.')
+	return true 
 end 
 
 -- iterator function for iterating over all playlists, skipping any that return nil data
