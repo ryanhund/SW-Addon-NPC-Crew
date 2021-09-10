@@ -1584,11 +1584,11 @@ function onCustomCommand(message, user_id, admin, auth, command, one, ...)
 
 	local name = server.getPlayerName(user_id)
 
-    if command == "?despawnall" and admin == true then
+    if command == "?despawnall" and auth == true then
 		despawnAllShips()
     end
 
-	if command == "?spawnship" and admin == true then 
+	if command == "?spawnship" and auth == true then 
 		local params = {...}
 		--WIP
 		local custom_name = params[1] 
