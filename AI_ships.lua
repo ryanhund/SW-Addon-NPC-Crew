@@ -1610,7 +1610,11 @@ function onCustomCommand(message, user_id, admin, auth, command, one, ...)
 
     if command == "?printdata" and admin == true then
         server.announce("[Debug]", "---------------")
-        printTable(g_savedata, "g_savedata")
+		if one then 
+			printTable(g_savedata[one], one 
+		else 
+        	printTable(g_savedata, "g_savedata")
+		end 
         server.announce("", "---------------")
     end
 
