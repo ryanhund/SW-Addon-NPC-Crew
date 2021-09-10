@@ -80,7 +80,8 @@ Ship = {
 		ship_data.states.addon_information.sim = {}
 		ship_data.states.addon_information.sim.is_pathing = false
 		ship_data.states.addon_information.sim.path = {}
-		ship_data.states.addon_information.name = ship_data.name
+		--ship_data.states.addon_information.name = ship_data.name
+		ship_data.states.addon_information.name = ship_data.custom_name
 		--self.states.available_tasks = ship_data.available_tasks
 
 		if server.getVehicleSimulating(ship_data.states.addon_information.id) then
@@ -731,7 +732,7 @@ Task = {
 	end, 
 }
 
-
+--- Concatenate two tables. t2 overwrites t1 if there is a conflict.
 function conc(t1,t2) 
 	for k,v in pairs(t2) do 
 		t1[k] = v
@@ -851,7 +852,7 @@ function create_ship(user_id, ship_name, custom_name, is_ocean_zone)
 end 
 
 g_ships = {
-	squirrel = function() return {
+	Squirrel = function() return {
 		name = 'Squirrel',
 		sensors = {
 			'speed_kph',
@@ -1099,7 +1100,7 @@ g_ships = {
 		}
 	} end,
 
-	vanguard = function() return {
+	Vanguard = function() return {
 		name = 'Vanguard',
 		sensors = {
 			'bool_crane_lowered',
