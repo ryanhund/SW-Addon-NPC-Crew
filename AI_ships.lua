@@ -1107,6 +1107,9 @@ g_ships = {
 			'bool_crane_lowered',
 			'bool_RHIB_connected',
 			'bool_helicopter_connected',
+			'winch_length',
+			'bool_anchor_connected',
+			'bool_anchor_secured',
 		},
 		size = 'large',
 		vehicle_type = 'boat',
@@ -1294,7 +1297,7 @@ g_ships = {
 					make_task_component('create_popup','Deckhand','Helicopter is clear of the flight deck'),
 					make_task_component('wait','wait6', 10),
 					make_task_component('create_popup','Deckhand','Returning flight deck to normal conditions'),
-					make_task_component('manipulate_helm', 'Flight Deck Controls', {button_1 = false, button_3 = false, button_5 = false}),
+					make_task_component('manipulate_helm', 'Flight Deck Controls', {button_1 = true, button_3 = true, button_5 = true}),
 					make_task_component('if_then_else', {'bool_crane_lowered'}, {'press_button', 'Deploy Crane'}, nil ),
 					make_task_component('spawn_task', 'set light RAM off'),
 					make_task_component('create_popup','Executive Officer','Flight operations complete'),
@@ -1444,6 +1447,56 @@ g_ships = {
 					make_task_component('set_keypad', 'Navigation Lights Orders', output)
 				}
 
+			} end,
+
+			['drop anchor'] = function() return {
+				name = 'Drop the anchor',
+				priority = 2,
+				required_crew = {'Executive Officer', 'Deckhand'},
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('set_seated', 'Deckhand', 'Anchor Controls'),
+					make_task_component('wait', 'wait1', 1.5),
+					make_task_component('create_popup', 'Executive Officer', 'Drop anchor'),
+					make_task_component('wait', 'wait2', 1.5),
+					make_task_component('create_popup', 'Deckhand', 'Anchor is away'),
+					make_task_component('press_button', 'enable_anchor_s'),
+					make_task_component('press_button', 'Winch_out_s'),
+					make_task_component('wait', 'wait3', 5),
+					make_task_component('evaluate_conditional', 'bool_anchor_connected'),
+					make_task_component('create_popup', 'Deckhand', 'Anchor has hit bottom'),
+					make_task_component('wait', 'wait4', 1.5),
+					make_task_component('press_button', 'Winch_out_r'),
+					make_task_component('spawn_task', 'set light Anchor on'),
+					make_task_component('wait', 'wait5', 2.5),
+
+
+				},
+			} end,
+
+			['weigh anchor'] = function() return {
+				name = 'Weigh the anchor',
+				priority = 2,
+				required_crew = {'Executive Officer', 'Deckhand'},
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('set_seated', 'Deckhand', 'Anchor Controls'),
+					make_task_component('wait', 'wait1', 1.5),
+					make_task_component('create_popup', 'Executive Officer', 'Weigh anchor'),
+					make_task_component('wait', 'wait2', 1.5),
+					make_task_component('create_popup', 'Deckhand', 'Anchor is coming up'),
+					make_task_component('press_button', 'enable_anchor_r'),
+					make_task_component('press_button', 'Winch_in_s'),
+					make_task_component('wait', 'wait3', 5),
+					make_task_component('evaluate_conditional', 'bool_anchor_secured'),
+					make_task_component('create_popup', 'Deckhand', 'Anchor has been secured'),
+					make_task_component('press_button', 'Winch_in_r'),
+					make_task_component('spawn_task', 'set light Anchor off'),
+					make_task_component('wait', 'wait4', 2.5),
+
+				}
 			} end,
 		}
 	} end,
