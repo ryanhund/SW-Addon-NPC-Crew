@@ -577,9 +577,10 @@ Task = {
 			['or']  = function(a,b) return (a or b) end,
 			['>']   = function(a,b) return (a > b) end,
 			['<']   = function(a,b) return (a < b) end,
-			['>=']   = function(a,b) return (a >= b) end,
-			['<=']   = function(a,b) return (a <= b) end,
-			['==']   = function(a,b) return (a == b) end,
+			['>=']  = function(a,b) return (a >= b) end,
+			['<=']  = function(a,b) return (a <= b) end,
+			['==']  = function(a,b) return (a == b) end,
+			['~']   = function(a,b) return (a < b + 1 and a > b - 1) end,
 		}
 		local terms = {...}
 		if #terms == 1 then return (task_data.ship_states.sensors[terms[1]].value) end 
@@ -609,7 +610,8 @@ Task = {
 	--- @param component_if_false table Task component and optional args if statement evaluates to false
 	if_then_else = function(self, task_data, condition, component_if_true, component_if_false)
 		-- pass the conditional to evaluate_conditional, can handle multiple arguments
-		local is_success = Task:evaluate_conditional(task_data, type(condition) == 'table' and table.unpack(condition) or condition)
+		local condition = (type(condition) == 'table') and condition or {condition}
+		local is_success = Task:evaluate_conditional(task_data, table.unpack(condition))
 		local args = is_success and component_if_true or component_if_false 
 		if not args then return true end 
 		local component = make_task_component(table.unpack(args))
@@ -1110,6 +1112,7 @@ g_ships = {
 			'winch_length',
 			'bool_anchor_connected',
 			'bool_anchor_secured',
+			'compass_degrees',
 		},
 		size = 'large',
 		vehicle_type = 'boat',
@@ -1495,6 +1498,40 @@ g_ships = {
 					make_task_component('press_button', 'Winch_in_r'),
 					make_task_component('spawn_task', 'set light Anchor off'),
 					make_task_component('wait', 'wait4', 2.5),
+
+				}
+			} end,
+			
+			['come'] = function(direction, to, heading)
+				local heading = tonumber(heading) or 361
+				--debugLog('heading:'..heading)
+				--debugLog(type(heading))
+				local direction = ('left' or 'right') and direction or 'left'
+				heading = ((heading <= 360)) and heading or 361
+
+			return {
+				name = 'Navigate to a particular bearing',
+				priority = 1,
+				required_crew = {'Helmsman', 'Executive Officer'},
+				override_behavior = 'wait',
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('if_then_else', {heading, '>', 360}, {'force_end_task'}),
+					make_task_component('wait','wait1',0.5),
+					make_task_component('create_popup', 'Executive Officer', 'Come '..direction..' to '..heading),
+					make_task_component('wait','wait2',1),
+					make_task_component('create_popup', 'Helmsman', 'Come '..direction..' to '..heading..', aye'),
+					make_task_component('spawn_task', direction..' standard'),
+					make_task_component('evaluate_conditional', 'compass_degrees',  '<', (heading + 10)%360),
+					make_task_component('evaluate_conditional', 'compass_degrees',  '>', (heading - 10)%360),
+					make_task_component('spawn_task', direction..' 10'),
+					make_task_component('evaluate_conditional', 'compass_degrees',  '<', (heading + 5)%360),
+					make_task_component('evaluate_conditional', 'compass_degrees',  '>', (heading - 5)%360),
+					make_task_component('spawn_task', direction..' 5'),
+					make_task_component('evaluate_conditional', 'compass_degrees',  '~', heading),
+					make_task_component('create_popup', 'Helmsman', 'Current heading is '..heading..' degrees'),
+					make_task_component('spawn_task', 'rudder midships'),
 
 				}
 			} end,
