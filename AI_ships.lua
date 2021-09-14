@@ -575,6 +575,7 @@ Task = {
 		local conditionals = {
 			['and'] = function(a,b) return (a and b) end,
 			['or']  = function(a,b) return (a or b) end,
+			['xor'] = function(a,b) return (a ~= b) end,
 			['>']   = function(a,b) return (a > b) end,
 			['<']   = function(a,b) return (a < b) end,
 			['>=']  = function(a,b) return (a >= b) end,
@@ -1113,6 +1114,7 @@ g_ships = {
 			'bool_anchor_connected',
 			'bool_anchor_secured',
 			'compass_degrees',
+			'bool_thruster_unlocked',
 		},
 		size = 'large',
 		vehicle_type = 'boat',
@@ -1533,6 +1535,28 @@ g_ships = {
 					make_task_component('create_popup', 'Helmsman', 'Current heading is '..heading..' degrees'),
 					make_task_component('spawn_task', 'rudder midships'),
 
+				}
+			} end,
+
+			['thruster'] = function(thruster, onoff)
+				local onoff = (onoff == 'on') and true or false 
+				local order_text = onoff and 'Engage' or 'Disengage'
+				local thruster = (thruster == 'port') and 'port' or 'starboard'
+				local button = thruster..'_thruster_'..(onoff and 's' or 'r')
+			return {
+				name = 'Control the bow thrusters',
+				priority = 1,
+				required_crew = {'Helmsman', 'Executive Officer'},
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('wait','wait1',0.5),
+					make_task_component('create_popup', 'Executive Officer', order_text..' '..thruster..' thruster'),
+					make_task_component('wait','wait2',1),
+					make_task_component('create_popup', 'Helmsman', order_text..' '..thruster..' thruster, aye'),
+					make_task_component('if_then_else', {'bool_thruster_unlocked', 'xor', onoff}, {'press_button', 'unlock_bow_thrusters'}),
+					make_task_component('wait', 'wait3',1),
+					make_task_component('press_button', button)
 				}
 			} end,
 		}
