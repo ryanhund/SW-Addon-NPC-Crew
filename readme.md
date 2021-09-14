@@ -1,4 +1,4 @@
-# Foucault's NPC Crew
+# Foucault's NPC Crewmembers (FNPC)
 
 ## Description
 
