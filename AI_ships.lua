@@ -139,7 +139,11 @@ Ship = {
 
 		for _,crewmember in pairs(ship_data.crew) do 
 			-- Forced wait time before engaging spawn logic 
-			if ship_data.states.spawn_timer == 60 * 5 then 
+			if 
+				ship_data.states.spawn_timer == 60 * 4 
+				or ship_data.states.spawn_timer == 60 * 5 --second iteration to prevent blocking 
+				and crewmember.current_task.t == 'routine' 
+			then 
 				crewmember.current_task.t = 'spawn'
 			end 
 			Crew:tick(crewmember, ship_data.states.addon_information.id)
@@ -290,6 +294,8 @@ Ship = {
 
 	on_vehicle_load = function(self, ship_data)
 		ship_data.states.addon_information.sim.state = 'loaded'
+
+		ship_data.states.spawn_timer = 0 
 	end,
 
 	on_vehicle_unload = function(self, ship_data)
@@ -400,7 +406,7 @@ g_crew_routines = {
 function create_crew(role, routine) return { 
     role = role,
 	routine = g_crew_routines[routine],
-    current_task = {t = '', priority = math.huge, location = ''}, --default task is 'routine',
+    current_task = {t = 'routine', priority = math.huge, location = ''}, --default task is 'routine',
 	id = 0,
 }
 end
@@ -430,7 +436,7 @@ Crew = {
         return true
     end,
 
-    tick = function(self, crew_data, vehicle_id)
+    tick = function(self, crew_data, vehicle_id, force_update)
 		if crew_data.current_task.t == 'spawn' then 
 			local candidate_location
 			for index,routine in pairs(crew_data.routine) do 
@@ -458,7 +464,7 @@ Crew = {
 				--else break 
 				end
 			end 
-			if candidate_location ~= crew_data.current_task.location then 
+			if candidate_location ~= crew_data.current_task.location or force_update then 
 				crew_data.current_task.location = candidate_location
 				debugLog('changing location to '..candidate_location)
 				server.setCharacterSeated(crew_data.id, vehicle_id, crew_data.current_task.location)
@@ -1806,6 +1812,15 @@ function onCustomCommand(message, user_id, admin, auth, command, one, ...)
 			test_tasks()
 		end 
 	end
+
+	if command == '?resetcrew' and auth == true then 
+		if not one then debugLog('Usage: ?resetcrew vehicle_name') return end
+
+		local ship_id = find_ship_id(one) 
+		if not ship_id then return end 
+		local ship = g_savedata.ships[ship_id]
+		ship.states.spawn_timer = 60 * 3 --command will activate after 2 seconds
+	end 
 
     if command == "?printtags" and admin == true then
         local location_tags = {}
