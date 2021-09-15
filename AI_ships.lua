@@ -1565,6 +1565,15 @@ g_ships = {
 					make_task_component('press_button', button)
 				}
 			} end,
+
+			['toggle mast'] = function() return {
+				name = 'Toggle between raising and lowering the mast',
+				priority = 1,
+				
+				task_components = {
+					make_task_component('press_button', 'toggle_mast')
+				}
+			} end,
 		}
 	} end,
 }
