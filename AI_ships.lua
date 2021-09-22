@@ -1631,7 +1631,7 @@ function onCreate(is_world_create)
 
             local is_ship = (parameters.type == 'Ship')
             if is_ship then 
-                if mission_objects.main_vehicle_component ~= nil and #mission_objects.crew > 0 then
+                if mission_objects.main_vehicle_component ~= nil --[[and #mission_objects.crew > 0]] then
                     debugLog("Found valid ship")
 					local ship_name = parameters.ship_name
 					g_savedata.valid_ships[ship_name] = { playlist_index = i, location_index = j, data = location_data, objects = mission_objects, parameters = parameters }
