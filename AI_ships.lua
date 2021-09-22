@@ -880,8 +880,8 @@ g_ships = {
 		vehicle_type = 'boat', --boat, fixed_wing, rotorcraft, ground
 		speed = 25,
 		crew = {
-			captain = create_crew('Captain','officer_of_the_deck'),
-			engineer= create_crew('Engineer', 'engineer'),
+			create_crew('Captain','officer_of_the_deck'),
+			create_crew('Engineer', 'engineer'),
 		},
 		location = function() return g_savedata.valid_ships.Squirrel end, --This shouldn't be a problem, since it's only used in init
 		available_tasks =  {
@@ -1126,11 +1126,11 @@ g_ships = {
 		vehicle_type = 'boat',
 		speed = 70,
 		crew = {
-			xo = create_crew('Executive Officer', 'xo'),
-			chief_engineer = create_crew('Chief Engineer', 'chief_engineer'),
-			helmsman = create_crew('Helmsman', 'helmsman'),
-			relief_helmsman = create_crew('Relief Helmsman', 'relief_helmsman'),
-			deckhand = create_crew('Deckhand', 'deckhand'),
+			create_crew('Executive Officer', 'xo'),
+			create_crew('Chief Engineer', 'chief_engineer'),
+			create_crew('Helmsman', 'helmsman'),
+			create_crew('Relief Helmsman', 'relief_helmsman'),
+			create_crew('Deckhand', 'deckhand'),
 		},
 		location = function() return g_savedata.valid_ships.Vanguard end,
 		available_tasks = {
