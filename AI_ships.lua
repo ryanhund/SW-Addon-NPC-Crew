@@ -1576,6 +1576,30 @@ g_ships = {
 			} end,
 		}
 	} end,
+
+	Helicopter = function() return {
+		name = 'Helicopter',
+		sensors = {},
+		size = 'small',
+		vehicle_type = 'rotorcraft',
+		speed = 100,
+		crew = {},
+		location = function() return g_savedata.valid_ships.Helicopter end,
+		available_tasks = {},
+
+	} end, 
+
+	RHIB = function() return {
+		name = 'RHIB',
+		sensors = {},
+		size = 'small',
+		vehicle_type = 'boat',
+		speed = 60,
+		crew = {},
+		location = function() return g_savedata.valid_ships.RHIB end,
+		available_tasks = {},
+
+	} end, 
 }
 
 
