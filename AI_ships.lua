@@ -16,15 +16,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ]]
 
+--[[
 
--- CLOCK = server.getTime()
--- CLOCK = {
--- ["hour"] = hour (24),
--- ["minute"] = minute (60),
--- ["daylight_factor"] = midday factor (0-1),
--- ["percent"] = day_cycle_percent (0-1),
--- }
+	DO NOT CHANGE THIS PART
 
+]]
 function parseTimeFactorToHM(factor)
 	local minutes_in_a_day = 60 * 24
 	local total_minutes = math.floor(factor * minutes_in_a_day)
@@ -44,6 +40,14 @@ end
 
 -- Generator function for routines
 function routine(time,location) return {time=parseTimeHMToFactor(time),location=location} end
+
+--[[
+-------------------------------------------
+		BEGIN USER-EDITABLE SECTION
+-------------------------------------------
+]]
+
+
 -- List of seats and beds with corresponding times 
 g_crew_routines = {
 	officer_of_the_deck = {
@@ -836,6 +840,15 @@ g_ships = {
 
 	} end, 
 }
+
+--[[
+-------------------------------------------------------------------
+					END USER-EDITABLE SECTION
+-------------------------------------------------------------------
+]]
+
+
+
 
 -------------------------------------------------------------------
 --
