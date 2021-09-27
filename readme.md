@@ -8,6 +8,8 @@ For a user and developer guide, see the [Wiki](https://github.com/ryanhund/SW-Ad
 
 To report a bug or request a feature, see [Issues](https://github.com/ryanhund/SW-Addon-NPC-Crew/issues).
 
+To download the addon, see the [Workshop page](https://steamcommunity.com/sharedfiles/filedetails/?id=2599364740).
+
 This addon is still WIP.
 
 # Example Tasks
