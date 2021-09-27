@@ -58,7 +58,9 @@ g_crew_routines = {
 }
 
 g_ships = {
-	Example = function() return {
+    --[[
+
+    Example = function() return {
         name = 'Example',
         sensors = {
             'speed_kph',
@@ -87,6 +89,8 @@ g_ships = {
         }
 
     } end,
+    
+    ]]
 }
 
 --[[
