@@ -1650,15 +1650,15 @@ function onCreate(is_world_create)
 		local addon_index = server.getAddonIndex()
 		for j in iterLocations(addon_index) do
 			--debugLog('	searching location...')
-			local parameters, mission_objects = loadLocation(i, j)
-			local location_data = server.getLocationData(i, j)
+			local parameters, mission_objects = loadLocation(addon_index, j)
+			local location_data = server.getLocationData(addon_index, j)
 
             local is_ship = (parameters.type == 'Ship')
             if is_ship then 
                 if mission_objects.main_vehicle_component ~= nil --[[and #mission_objects.crew > 0]] then
                     debugLog("Found valid ship")
 					local ship_name = parameters.ship_name
-					g_savedata.valid_ships[ship_name] = { playlist_index = i, location_index = j, data = location_data, objects = mission_objects, parameters = parameters }
+					g_savedata.valid_ships[ship_name] = { playlist_index = addon_index, location_index = j, data = location_data, objects = mission_objects, parameters = parameters }
                 end
             end
 
