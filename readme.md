@@ -4,7 +4,11 @@
 
 This addon allows Stormworks players to give their vessels NPC crewmembers that follow orders, perform shipboard tasks, and can navigate the vessel while it is despawned. 
 
-This addon is still WIP. As of yet there is no public release.
+For a user and developer guide, see the [Wiki](https://github.com/ryanhund/SW-Addon-NPC-Crew/wiki).
+
+To report a bug or request a feature, see [Issues](https://github.com/ryanhund/SW-Addon-NPC-Crew/issues).
+
+This addon is still WIP.
 
 # Example Tasks
 - Navigation
