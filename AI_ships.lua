@@ -1645,8 +1645,10 @@ function onCreate(is_world_create)
 		}
 	end
 
-	for i in iterPlaylists() do
-		for j in iterLocations(i) do
+	-- for i in iterPlaylists() do
+	do 
+		local addon_index = server.getAddonIndex()
+		for j in iterLocations(addon_index) do
 			--debugLog('	searching location...')
 			local parameters, mission_objects = loadLocation(i, j)
 			local location_data = server.getLocationData(i, j)
