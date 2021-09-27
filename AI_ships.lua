@@ -375,7 +375,7 @@ g_ships = {
 		available_tasks = {
 			['enhanced navigation watch'] = function() return{
 				name = 'enhanced navigation watch',
-				priority = 1,
+				priority = 2,
 				required_crew = {'Executive Officer', 'Helmsman', 'Relief Helmsman', 'Deckhand'},
 				override_behavior = 'wait',
 
