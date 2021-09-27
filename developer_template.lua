@@ -67,7 +67,7 @@ g_ships = {
             'bool_engines',
         },
         size = 'small', --small, medium, or large
-        vehicle_type = 'boat',
+        vehicle_type = 'boat',  --boat, fixed_wing, rotorcraft, ground
         speed = 25,
         crew = {
             create_crew('Example Crewmember', 'example_crewmember')
@@ -89,7 +89,7 @@ g_ships = {
         }
 
     } end,
-    
+
     ]]
 }
 
