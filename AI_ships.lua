@@ -472,6 +472,7 @@ g_ships = {
 				name = 'Deploy the RHIB',
 				priority = 2,
 				required_crew = {'Deckhand'},
+				override_behavior = 'wait',
 
 				task_components = {
 					make_task_component('assign_crew'),
@@ -499,6 +500,7 @@ g_ships = {
 				name = 'Retrieve the RHIB',
 				priority = 2,
 				required_crew = {'Deckhand'},
+				override_behavior = 'wait',
 
 				task_components = {
 					make_task_component('assign_crew'),
@@ -703,6 +705,7 @@ g_ships = {
 				name = 'Drop the anchor',
 				priority = 2,
 				required_crew = {'Executive Officer', 'Deckhand'},
+				override_behavior = 'wait',
 
 				task_components = {
 					make_task_component('assign_crew'),
@@ -729,6 +732,7 @@ g_ships = {
 				name = 'Weigh the anchor',
 				priority = 2,
 				required_crew = {'Executive Officer', 'Deckhand'},
+				override_behavior = 'wait',
 
 				task_components = {
 					make_task_component('assign_crew'),
