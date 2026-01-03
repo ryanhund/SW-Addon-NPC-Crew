@@ -114,13 +114,14 @@ g_zones_hospital = {}
 g_output_log = {}
 g_objective_update_counter = 0
 g_damage_tracker = {}
+g_print_logs = false
 
 DEFAULT_POPUP_LIFESPAN = 2
 
 g_time_pct = 0
 
 NAME = 'Foucault\'s NPC Crewmembers'
-VERSION = '0.0.1'
+VERSION = '0.0.2'
 
 Ship = {
     init = function(self, ship_data)        
@@ -582,6 +583,7 @@ Task = {
 		local popup_id = #task_data.ship_states.popups + 1
 		local char_id = task_data.assigned_crew[char_name].id
 		addPopup(popup_id, char_id, task_data.ship_states.popups, popup_text, lifespan)
+		server.announce(char_name, popup_text)
 		return true 
 	end,
 
@@ -662,7 +664,7 @@ Task = {
 	--- @param stop_command string Optional, if set the order will be repeatedly sent to the helm until the player types in the stop command.
 	manipulate_helm = function(self, task_data, seat_name, commands, stop_command)
 		local this_helm = task_data.ship_states.helms[seat_name] 
-		local to_vehicle = this_helm or {0, 0, 0, 0, false, false, false, false, false, false,}
+		local to_vehicle = this_helm or {0, 0, 0, 0, false, false, false, false, false, false, false,}
 	
 		local map_name_to_num = {
 			['axis_ws'] = 1,
@@ -675,6 +677,7 @@ Task = {
 			['button_4'] = 8,
 			['button_5'] = 9,
 			['button_6'] = 10,
+			['trigger'] = 11,
 		}
 		
 		for button_name, button_value in pairs(commands) do 
@@ -951,10 +954,10 @@ function onCreate(is_world_create)
 		end 
 	end 
 
-	debugLog(NAME..' Copyright (C) 2021 Ryan Hund')
-    debugLog('This program comes with ABSOLUTELY NO WARRANTY.')
-    debugLog('This is free software, and you are welcome to redistribute it under certain conditions.')
-	debugLog('See the GNU General Public License for more details.')
+	server.announce("",NAME..' Copyright (C) 2021 Ryan Hund')
+    server.announce("",'This program comes with ABSOLUTELY NO WARRANTY.')
+    server.announce("",'This is free software, and you are welcome to redistribute it under certain conditions.')
+	server.announce("",'See the GNU General Public License for more details.')
 end
 
 --End all tasks prior to quitting save
@@ -1038,6 +1041,10 @@ function onCustomCommand(message, user_id, admin, auth, command, one, ...)
 
     if command == "?log" and admin == true then
         printLog()
+    end
+
+	if command == "?debug" and admin == true then
+        g_print_logs = true
     end
 
     if command == "?printdata" and admin == true then
@@ -1410,7 +1417,9 @@ end
 -- the log for the previously spawned mission can be displayed using the command ?log
 function debugLog(message)
 	table.insert(g_output_log, message)
-	server.announce('DEBUG	', message)
+	if g_print_logs then
+		server.announce('DEBUG	', message)
+	end
 end
 
 

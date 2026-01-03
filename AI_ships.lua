@@ -373,9 +373,52 @@ g_ships = {
 		},
 		location = function() return g_savedata.valid_ships.Vanguard end,
 		available_tasks = {
+			['start engines'] = function() return{
+				name = 'start engines',
+				priority = 1,
+				required_crew = {'Executive Officer', 'Chief Engineer'},
+				override_behavior = 'wait',
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('set_seated', 'Executive Officer', 'Officer of the Deck'),
+					make_task_component('set_seated', 'Chief Engineer', 'Engine Workshop'),
+					make_task_component('press_button', 'Eng killswitch'),
+					make_task_component('wait','eng_start_wait',1),
+					make_task_component('press_button','AI Engine Start'),
+					make_task_component('wait','eng_start_wait_0',7),
+					make_task_component('create_popup','Chief Engineer','Bridge, engineering.'),
+					make_task_component('wait','eng_start_wait1',1.5),
+					make_task_component('create_popup','Executive Officer','Engineering, bridge, go ahead.'),
+					make_task_component('wait','eng_start_wait2',1),
+					make_task_component('create_popup','Chief Engineer','All engines at idle. Ready to get underway.'),
+					make_task_component('wait','eng_start_wait3',1.8),
+					make_task_component('create_popup','Executive Officer','Understood. Bridge out.'),
+
+				}
+			} end,
+
+
+			['cut engines'] = function() return{
+
+				name='cut engines',
+				priority=1,
+				required_crew = {'Executive Officer', 'Chief Engineer'},
+				override_behavior = 'wait',
+
+				task_components = {
+					make_task_component('assign_crew'),
+					make_task_component('set_seated', 'Executive Officer', 'Officer of the Deck'),
+					make_task_component('set_seated', 'Chief Engineer', 'Engine Workshop'),
+					make_task_component('press_button', 'Eng killswitch'),
+
+				}
+			} end,
+
+
 			['enhanced navigation watch'] = function() return{
 				name = 'enhanced navigation watch',
-				priority = 2,
+				priority = 1,
 				required_crew = {'Executive Officer', 'Helmsman', 'Relief Helmsman', 'Deckhand'},
 				override_behavior = 'wait',
 
@@ -402,7 +445,17 @@ g_ships = {
 					['flank'] = 1,
 				}
 
+				local order_display_names = {
+					['dead slow'] = 'Ahead dead slow',
+					['slow'] = 'Ahead slow',
+					['half'] = 'Ahead one-half',
+					['tow mode'] = 'Rig for towing',
+					['full'] = 'Ahead full',
+					['flank'] = 'Ahead flank speed',	
+				}
+
 				local order = orders[order] and order or 'slow'
+				local order_display_name = order_display_names[order] or order
 
 				return{
 				name = 'throttle ahead',
@@ -412,9 +465,9 @@ g_ships = {
 				task_components = {
 					make_task_component('assign_crew'),
 					make_task_component('wait','wait1',0.5),
-					make_task_component('create_popup','Executive Officer','All ahead '..order),
+					make_task_component('create_popup','Executive Officer',order_display_name..'.'),
 					make_task_component('wait','wait2',1),
-					make_task_component('create_popup','Helmsman','All ahead '..order..', aye'),
+					make_task_component('create_popup','Helmsman',order_display_name..', aye.'),
 					make_task_component('spawn_task', 'set light Run on'),
 					make_task_component('set_seated', 'Helmsman', 'Helmsman'),
 					make_task_component('set_keypad', 'NPC Engine Telegraph Order', orders[order]),
@@ -534,25 +587,30 @@ g_ships = {
 					make_task_component('spawn_task', 'set light RAM on'),
 					make_task_component('set_seated', 'Executive Officer', 'Officer of the Deck'),
 					make_task_component('set_seated', 'Deckhand', 'Flight Deck Controls'),
-					make_task_component('create_popup','Executive Officer','All hands, prepare to conduct flight operations'),
-					make_task_component('create_popup','Deckhand','Preparing to conduct flight operations'),
+					make_task_component('create_popup','Executive Officer','Now setting flight condition. All personnel clear the flight deck.'),
+					make_task_component('create_popup','Deckhand','Preparing to conduct flight operations.'),
 					make_task_component('wait','wait2', 2.1),
-					make_task_component('create_popup','Deckhand','Clear the flight deck'),
-					make_task_component('wait','wait3', 2.1),
-					make_task_component('create_popup','Deckhand','Preparing flight deck for takeoff'),
+					make_task_component('create_popup','Deckhand','Preparing flight deck for takeoff.'),
 					make_task_component('manipulate_helm', 'Flight Deck Controls', {button_1 = true, button_3 = true, button_5 = true}),
 					make_task_component('if_then_else', {'bool_crane_lowered'}, nil, {'press_button', 'Deploy Crane'}),
 					make_task_component('wait','wait4', 5),
-					make_task_component('create_popup','Deckhand','Ready for takeoff'),
+					make_task_component('create_popup','Deckhand','Flight deck is clear. Awaiting "ready for takeoff" message from flight crew.'),
+					make_task_component('await_user_input', 'ready for takeoff'),
+					make_task_component('wait','wait4.5', 1),
+					make_task_component('create_popup','Deckhand','Bridge, Primary. Pre-flight checks complete. Ready to launch as directed.'),
+					make_task_component('create_popup','Executive Officer','Roger, Primary. Clear for takeoff.'),
 					make_task_component('evaluate_conditional', 'bool_helicopter_connected', '==', false),
-					make_task_component('wait','wait5', 5),
-					make_task_component('create_popup','Deckhand','Helicopter is clear of the flight deck'),
-					make_task_component('wait','wait6', 10),
-					make_task_component('create_popup','Deckhand','Returning flight deck to normal conditions'),
+					make_task_component('wait','wait5', 3),
+					make_task_component('create_popup','Deckhand','Bridge, Primary. Helicopter away.'),
+					make_task_component('create_popup','Executive Officer','Secure from flight quarters.'),
+					make_task_component('wait','wait5.6',0.8),
+					make_task_component('create_popup','Deckhand','Securing from flight quarters.'),
+					make_task_component('wait','wait6', 5),
 					make_task_component('manipulate_helm', 'Flight Deck Controls', {button_1 = true, button_3 = true, button_5 = true}),
 					make_task_component('if_then_else', {'bool_crane_lowered'}, {'press_button', 'Deploy Crane'}, nil ),
+					make_task_component('create_popup','Executive Officer','Flight operations complete.'),
 					make_task_component('spawn_task', 'set light RAM off'),
-					make_task_component('create_popup','Executive Officer','Flight operations complete'),
+
 
 				}
 			} end,
@@ -568,29 +626,34 @@ g_ships = {
 					make_task_component('wait','wait1', 2.5),
 					make_task_component('set_seated', 'Executive Officer', 'Officer of the Deck'),
 					make_task_component('set_seated', 'Deckhand', 'Flight Deck Controls'),
-					make_task_component('create_popup','Executive Officer','All hands, prepare to conduct flight operations'),
-					make_task_component('create_popup','Deckhand','Preparing to conduct flight operations'),
+					make_task_component('create_popup','Executive Officer','Now setting flight condition. All personnel clear the flight deck.'),
+					make_task_component('wait','wait1.5',1.5),
+					make_task_component('create_popup','Deckhand','Preparing to conduct flight operations.'),
 					make_task_component('wait','wait2', 2.1),
 					make_task_component('spawn_task', 'set light RAM on'),
-					make_task_component('create_popup','Deckhand','Clear the flight deck'),
+					make_task_component('create_popup','Deckhand','All personnel clear the flight deck.'),
 					make_task_component('wait','wait3', 2.1),
-					make_task_component('create_popup','Deckhand','Preparing flight deck for landing'),
+					make_task_component('create_popup','Deckhand','Preparing flight deck for landing.'),
 					make_task_component('manipulate_helm', 'Flight Deck Controls', {button_1 = true, button_5 = true}),
 					make_task_component('if_then_else', {'bool_crane_lowered'}, nil, {'press_button', 'Deploy Crane'}),
 					make_task_component('wait','wait4', 5),
-					make_task_component('create_popup','Deckhand','Ready to receive incoming aircraft'),
+					make_task_component('create_popup','Deckhand','Bridge, PriFly. Ready to receive incoming aircraft.'),
 					make_task_component('evaluate_conditional', 'bool_helicopter_connected'),
-					make_task_component('create_popup','Deckhand','Touchdown'),
-					make_task_component('create_popup','Executive Officer','Flight deck reports helicopter touchdown'),
+					make_task_component('wait','wait4.5', 0.5),
+					make_task_component('create_popup','Deckhand','Bridge, touchdown.'),
+					make_task_component('create_popup','Executive Officer','Flight deck reports helicopter touchdown.'),
 					make_task_component('wait','wait5', 5),
 					make_task_component('manipulate_helm', 'Flight Deck Controls', {button_3 = true, button_4 = true}),
-					make_task_component('create_popup','Deckhand','Awaiting full engine shutdown'),
+					make_task_component('create_popup','Deckhand','Awaiting full engine shutdown and "flight operations complete" message from flight crew.'),
 					make_task_component('await_user_input', 'flight operations complete'),
-					make_task_component('create_popup','Deckhand','Returning flight deck to normal conditions'),
+					make_task_component('wait','wait5.5',1.5),
+					make_task_component('create_popup','Executive Officer','Secure from flight quarters.'),
+					make_task_component('wait','wait5.6',0.8),
+					make_task_component('create_popup','Deckhand','Securing from flight quarters.'),
 					make_task_component('manipulate_helm', 'Flight Deck Controls', {button_1 = true, button_3 = true, button_4 = true, button_5 = true}),
 					make_task_component('if_then_else', {'bool_crane_lowered'}, {'press_button', 'Deploy Crane'}, nil ),
-					make_task_component('create_popup','Executive Officer','Flight operations complete'),
-					make_task_component('wait','wait6', 10),
+					make_task_component('create_popup','Executive Officer','Flight operations complete.'),
+					make_task_component('wait','wait6', 2.5),
 					make_task_component('spawn_task', 'set light RAM off'),
 
 
@@ -867,13 +930,14 @@ g_zones_hospital = {}
 g_output_log = {}
 g_objective_update_counter = 0
 g_damage_tracker = {}
+g_print_logs = false
 
 DEFAULT_POPUP_LIFESPAN = 2
 
 g_time_pct = 0
 
 NAME = 'Foucault\'s NPC Crewmembers'
-VERSION = '0.0.1'
+VERSION = '0.0.2'
 
 Ship = {
     init = function(self, ship_data)        
@@ -1335,6 +1399,7 @@ Task = {
 		local popup_id = #task_data.ship_states.popups + 1
 		local char_id = task_data.assigned_crew[char_name].id
 		addPopup(popup_id, char_id, task_data.ship_states.popups, popup_text, lifespan)
+		server.announce(char_name, popup_text)
 		return true 
 	end,
 
@@ -1415,7 +1480,7 @@ Task = {
 	--- @param stop_command string Optional, if set the order will be repeatedly sent to the helm until the player types in the stop command.
 	manipulate_helm = function(self, task_data, seat_name, commands, stop_command)
 		local this_helm = task_data.ship_states.helms[seat_name] 
-		local to_vehicle = this_helm or {0, 0, 0, 0, false, false, false, false, false, false,}
+		local to_vehicle = this_helm or {0, 0, 0, 0, false, false, false, false, false, false, false,}
 	
 		local map_name_to_num = {
 			['axis_ws'] = 1,
@@ -1428,6 +1493,7 @@ Task = {
 			['button_4'] = 8,
 			['button_5'] = 9,
 			['button_6'] = 10,
+			['trigger'] = 11,
 		}
 		
 		for button_name, button_value in pairs(commands) do 
@@ -1704,10 +1770,10 @@ function onCreate(is_world_create)
 		end 
 	end 
 
-	debugLog(NAME..' Copyright (C) 2021 Ryan Hund')
-    debugLog('This program comes with ABSOLUTELY NO WARRANTY.')
-    debugLog('This is free software, and you are welcome to redistribute it under certain conditions.')
-	debugLog('See the GNU General Public License for more details.')
+	server.announce("",NAME..' Copyright (C) 2021 Ryan Hund')
+    server.announce("",'This program comes with ABSOLUTELY NO WARRANTY.')
+    server.announce("",'This is free software, and you are welcome to redistribute it under certain conditions.')
+	server.announce("",'See the GNU General Public License for more details.')
 end
 
 --End all tasks prior to quitting save
@@ -1791,6 +1857,10 @@ function onCustomCommand(message, user_id, admin, auth, command, one, ...)
 
     if command == "?log" and admin == true then
         printLog()
+    end
+
+	if command == "?debug" and admin == true then
+        g_print_logs = true
     end
 
     if command == "?printdata" and admin == true then
@@ -2163,7 +2233,9 @@ end
 -- the log for the previously spawned mission can be displayed using the command ?log
 function debugLog(message)
 	table.insert(g_output_log, message)
-	server.announce('DEBUG	', message)
+	if g_print_logs then
+		server.announce('DEBUG	', message)
+	end
 end
 
 
